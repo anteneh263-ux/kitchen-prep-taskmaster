@@ -25,6 +25,24 @@ def load_sales_rows() -> list[dict]:
     return rows
 
 
+def daily_covers_before(target_date: str) -> dict[str, int]:
+    """Return ``{date: covers}`` for history dates strictly before ``target_date``.
+
+    Sales history holds one row per dish per date, so the covers figure repeats
+    within a date; it is collapsed to a single observation per date. Non-positive
+    covers are dropped as unusable rather than averaged in. The strict ``<``
+    comparison is what guards against target-date and future leakage.
+    """
+    target = _date.fromisoformat(target_date)
+    out: dict[str, int] = {}
+    for row in load_sales_rows():
+        if _date.fromisoformat(row["date"]) >= target:
+            continue
+        if row["covers"] > 0:
+            out[row["date"]] = row["covers"]
+    return out
+
+
 def same_weekday_history(target_date: str, dish_id: str, weeks: int = 4) -> list[int]:
     """Return qty_sold for the last ``weeks`` occurrences of the target weekday
     strictly before ``target_date`` (guards against future leakage)."""

@@ -219,7 +219,7 @@ All files below are **synthetic and generic**, committed under
 | --- | --- | --- |
 | Menu and recipes | `menu.json` | 6 generic dishes with per-portion recipes and prep minutes |
 | Ingredient master | `ingredients.json` | 13 generic ingredients with unit, par level, lead time, shelf life and a placeholder supplier name |
-| Bookings | `bookings.csv` | Expected covers per date, 2026-08-11 → 2026-08-16 |
+| Bookings | `bookings.csv` | Expected covers per date, 2026-08-11 → 2026-08-16. Dates outside this window fall back to a deterministic estimate from sales history, marked on the plan as `covers_source` |
 | Inventory batches | `inventory_batches.json` | 15 seed batches with quantity and expiry date |
 | Sales history | `sales_history.csv` | Generated locally by `scripts/generate_sales_history.py`, seeded and deterministic, covering 2026-06-15 → 2026-08-13 |
 | Weather | Open-Meteo API | Live daily forecast for the configured coordinates; a deterministic offline stub is used when no API key is configured |
@@ -288,7 +288,7 @@ none of these.**
 pytest -m "not integration"
 ```
 
-**Result: 61 passed, 1 deselected** — no network, no API key, no cloud
+**Result: 76 passed, 1 deselected** — no network, no API key, no cloud
 resources required.
 
 ```bash
@@ -312,6 +312,7 @@ What the suite actually proves:
 | `test_pipeline_e2e_local.py` | Full offline run, end to end |
 | `test_prep_ids_stable.py` | Prep task ids and ordering are deterministic |
 | `test_home_render.py` / `test_server_home.py` | The mobile page renders, including the empty and degraded states |
+| `test_covers_fallback.py` | Booking rows win; a date past the booking window gets a positive deterministic estimate using only history strictly before it; same-weekday preferred; empty or non-positive history raises rather than returning zero |
 | `test_deployment_config.py` | The image starts the real app on `0.0.0.0` with Cloud Run's `$PORT`; `.env`, `.git`, `.venv` and `out/` stay out of the build context; all four routes answer, including before the first plan exists |
 | `test_gemini_integration.py` | *(integration)* With a real key, both steps must use the model — this test **fails** if the system silently degraded to a fallback |
 
@@ -446,9 +447,14 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   Docker is not available in the development environment, so the image has not
   been built locally. The first `gcloud run deploy --source .` is also the first
   real build.
-- **Bookings cover a fixed synthetic window** (2026-08-11 → 2026-08-16). A run
-  for a date outside that window raises `KeyError`. A real deployment would read
-  covers from a booking system.
+- **Bookings cover a fixed synthetic window** (2026-08-11 → 2026-08-16). Dates
+  past it no longer fail: covers are estimated deterministically from sales
+  history (rounded same-weekday mean, strictly before the target date), and the
+  plan records `covers_source` so the estimate is never mistaken for a booking.
+  The estimate ignores real demand signal a booking system would carry — large
+  parties, closures, events — so it is a safe default, not a substitute for a
+  booking feed. A run whose date also predates all sales history still fails
+  loudly with `CoversUnavailable` rather than inventing a number.
 - **Kitchen-facing output is in Norwegian.** The briefing text, the rendered
   Markdown and the mobile page are written for a Norwegian kitchen; this README
   and the architecture document are in English. The output language is not yet
@@ -621,7 +627,7 @@ kitchen-prep-taskmaster-v2/
 ├── scripts/
 │   ├── generate_sales_history.py    # Seeded synthetic history with real signal
 │   └── verify_data.py               # Referential integrity + leakage checks
-├── tests/                           # 15 test files (61 offline tests, 1 integration)
+├── tests/                           # 16 test files (76 offline tests, 1 integration)
 ├── requirements.txt
 ├── pyproject.toml
 └── .env.example

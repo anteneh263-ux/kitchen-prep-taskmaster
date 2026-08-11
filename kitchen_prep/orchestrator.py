@@ -71,8 +71,8 @@ def run_daily_prep(
             return store.get_plan(date)
 
         log("start", date=date)
-        covers = bookings_da.get_expected_covers(date)
-        log("covers", expected_covers=covers)
+        covers, covers_source = bookings_da.resolve_expected_covers(date)
+        log("covers", expected_covers=covers, covers_source=covers_source)
 
         weather = weather_da.get_weather(date)
         log("weather", **weather)
@@ -103,6 +103,7 @@ def run_daily_prep(
         plan: dict[str, Any] = {
             "date": date,
             "expected_covers": covers,
+            "covers_source": covers_source,
             "planning_basis": replen_pipe.PLANNING_BASIS,
             "forecast": forecast.to_dict(),
             "ingredient_requirements": required,
