@@ -1,0 +1,188 @@
+# Architecture — Kitchen Prep Taskmaster
+
+## The rule that shapes the whole system
+
+**Gemini provides judgment. Deterministic Python owns every number.**
+
+Gemini is called exactly twice per run, at two controlled, schema-bounded points.
+Neither call is allowed to become the source of an authoritative quantity.
+
+| Gemini may | Gemini may never |
+| --- | --- |
+| Propose a per-dish demand forecast, with drivers and reasoning | Have that proposal used unvalidated — every field is checked, and a rejected forecast is replaced by a deterministic baseline |
+| Prioritise prep tasks and explain the day | Compute ingredient requirements, FEFO consumption, shortfalls or order quantities |
+| Write the morning summary, warnings and recommended actions | Emit the published document directly — Python renders Markdown from validated JSON |
+| Flag that something needs a human decision | Approve a menu or portion change itself |
+
+Every value that a cook or a supplier acts on — `ingredient_requirements`,
+`fefo_consumption`, `prep_shortfalls`, `replenishment_orders`, `waste_flagged`,
+`remaining_stock` — is produced by deterministic Python and handed to Gemini
+**read-only**.
+
+## System diagram
+
+```mermaid
+flowchart TD
+    SCHED["Cloud Scheduler<br/>job kitchen-prep-daily<br/>cron 0 7 * * * — Europe/Oslo"]
+
+    subgraph RUN["Cloud Run — deployed --no-allow-unauthenticated"]
+        API["FastAPI app<br/>kitchen_prep/server.py"]
+        POST["POST /runs/daily<br/>idempotent per date"]
+        HOME["GET /<br/>mobile-friendly HTML page"]
+        LATEST["GET /plans/latest<br/>JSON plan"]
+        HEALTH["GET /healthz"]
+        API --- POST
+        API --- HOME
+        API --- LATEST
+        API --- HEALTH
+    end
+
+    subgraph ADK["Google ADK agent — kitchen_prep/agent.py"]
+        ROOT["root_agent kitchen_prep_taskmaster<br/>model gemini-3.5-flash"]
+        TOOL["Only exposed tool<br/>run_daily_prep(date)"]
+        ROOT --> TOOL
+    end
+
+    ORCH["Orchestrator run_daily_prep()<br/>kitchen_prep/orchestrator.py"]
+
+    subgraph INPUTS["Inputs — all synthetic"]
+        BOOK["bookings.csv<br/>expected covers"]
+        WX["Weather<br/>Open-Meteo live or deterministic offline stub"]
+        SALES["sales_history.csv<br/>seeded, generated locally"]
+        MENU["menu.json + ingredients.json<br/>recipes, par levels, lead times"]
+        BATCH["inventory_batches.json<br/>seed batches with qty and expiry"]
+    end
+
+    subgraph G1["Gemini step 1 — JUDGMENT ONLY"]
+        FCAST["propose_forecast()<br/>expected_qty per dish, drivers, reasoning"]
+    end
+
+    VAL{"Forecast validation<br/>pipeline/forecast_validate.py<br/>all menu dishes present<br/>qty integer and non-negative<br/>dishes-per-cover within 0.724 to 1.344"}
+    BASE["Deterministic baseline<br/>pipeline/baseline.py<br/>mean of last 4 same-weekday sales<br/>forecast_source = deterministic_fallback"]
+    FC["Authoritative forecast"]
+
+    subgraph CORE["Deterministic Python pipeline — SOLE OWNER OF ALL QUANTITIES"]
+        ING["1. Recipe explosion — pipeline/ingredients.py<br/>dish qty x recipe = ingredient_requirements"]
+        FEFO["2. FEFO consumption — pipeline/fefo.py + prep.py<br/>expired batches removed as waste_flagged<br/>today consumed earliest-expiry-first"]
+        SHORT["3. Prep shortfalls<br/>uncovered demand for TODAY, reported separately"]
+        TASKS["4. Prep tasks prep_dish_id<br/>ordered by prep minutes descending"]
+        REPL["5. Replenishment — pipeline/replenishment.py<br/>basis today_consumption_plus_par<br/>stock AFTER consumption, minus batches<br/>expiring before delivery, ordered up to par"]
+        ING --> FEFO --> SHORT --> TASKS --> REPL
+    end
+
+    PLAN["Authoritative plan — numbers now FROZEN"]
+
+    subgraph G2["Gemini step 2 — JUDGMENT ONLY"]
+        BRIEF["propose_briefing()<br/>prioritisation, recommended actions,<br/>warnings, plain-language summary"]
+    end
+
+    BVAL{"Briefing contract check<br/>contracts.validate_briefing()<br/>summary, priority_task_ids,<br/>shortfall_actions, warnings"}
+    DBRIEF["Deterministic briefing<br/>gemini/briefing_step.py<br/>briefing_source = deterministic_fallback"]
+    MERGE["Plan plus validated briefing JSON"]
+    MD["Markdown rendered by Python<br/>render/markdown.py"]
+
+    subgraph STORE["Firestore — KP_STORE=firestore; local JSON store otherwise"]
+        DP["daily_plans, one document per date<br/>plan plus briefing_markdown<br/>create-only, so idempotent"]
+        RL["run_logs, one document per run_id<br/>step log written in finally, even on failure"]
+        INV["inventory — declared collection<br/>batches currently seeded from<br/>inventory_batches.json, not yet<br/>read back from Firestore"]
+    end
+
+    SCHED -- "HTTPS POST with OIDC token<br/>audience = service URL" --> API
+    POST --> ROOT
+    TOOL --> ORCH
+    BOOK --> ORCH
+    WX --> ORCH
+    SALES --> BASE
+    ORCH --> FCAST
+    FCAST --> VAL
+    VAL -- "accepted — forecast_source = gemini" --> FC
+    VAL -- "rejected or model unavailable" --> BASE
+    BASE --> FC
+    FC --> ING
+    MENU -- "recipes" --> ING
+    MENU -- "par levels, lead times, units" --> REPL
+    BATCH --> FEFO
+    REPL --> PLAN
+    PLAN -- "read-only copy of the plan" --> BRIEF
+    BRIEF --> BVAL
+    BVAL -- "valid — briefing_source = gemini" --> MERGE
+    BVAL -- "invalid or unavailable" --> DBRIEF
+    DBRIEF --> MERGE
+    PLAN --> MERGE
+    MERGE --> MD
+    MD --> DP
+    ORCH -.-> RL
+    BATCH -.-> INV
+    DP --> HOME
+    DP --> LATEST
+
+    classDef gem fill:#fde7c8,stroke:#b06000,stroke-width:2px,color:#3a2600;
+    classDef det fill:#d6ecd9,stroke:#137333,stroke-width:2px,color:#0b2e16;
+    classDef gate fill:#e6e0f8,stroke:#5b34c0,stroke-width:2px,color:#22124f;
+    classDef infra fill:#dbe8fb,stroke:#1a56b0,stroke-width:1.5px,color:#0a2a5c;
+
+    class FCAST,BRIEF gem;
+    class ING,FEFO,SHORT,TASKS,REPL,BASE,PLAN,MD,DBRIEF,FC det;
+    class VAL,BVAL gate;
+    class SCHED,API,POST,HOME,LATEST,HEALTH,ROOT,TOOL,ORCH,DP,RL,INV infra;
+```
+
+Legend — **orange**: Gemini, judgment only, never arithmetic. **green**:
+deterministic Python, owner of all authoritative quantities. **purple**:
+validation gate with a deterministic fallback. **blue**: infrastructure,
+transport and storage.
+
+## Where the boundary is enforced in code
+
+| Boundary | Enforced by |
+| --- | --- |
+| Only one tool is reachable by the model | `kitchen_prep/agent.py` — `tools=[run_daily_prep]` |
+| A proposed forecast cannot enter the pipeline unchecked | `kitchen_prep/pipeline/forecast_validate.py` raises `ForecastRejected`; the orchestrator substitutes `baseline_forecast()` |
+| The model cannot silently break the run | `kitchen_prep/gemini/client.py` — only 408/429/5xx/network map to `GeminiUnavailable`; 400/401/403/404 crash rather than degrade quietly |
+| The briefing cannot change the plan's shape | `kitchen_prep/contracts.py` — `validate_briefing()` |
+| The published document is not raw model output | `kitchen_prep/render/markdown.py` renders Markdown from validated JSON |
+| A retried trigger cannot create a second plan | `plan_exists()` check plus create-only write of `daily_plans/{date}` |
+| A failed run is still auditable | `append_run_log()` in the orchestrator's `finally` block |
+
+### Storage status, stated precisely
+
+`daily_plans` and `run_logs` are written by code today, through either backend
+(`LocalJsonStore` for local development, `FirestoreStore` when
+`KP_STORE=firestore`). The `inventory` collection is part of the declared
+Firestore data model, but in the current implementation batches are always
+loaded from `kitchen_prep/data/inventory_batches.json` via
+`store.load_seed_batches()`; nothing reads or writes them back to Firestore yet.
+Closing that loop — persisting post-consumption batch state so a run continues
+from the previous day's inventory — is the next step, and it is listed under
+Known Limitations in the README.
+
+## Request flow, end to end
+
+1. **07:00 Europe/Oslo** — Cloud Scheduler fires `kitchen-prep-daily` and POSTs
+   `{}` to `<service-url>/runs/daily` with an OIDC token whose audience is the
+   service URL. Cloud Run runs `--no-allow-unauthenticated`, so only the invoker
+   service account gets through.
+2. **Idempotency check** — the orchestrator resolves the run date server-side in
+   Europe/Oslo and returns the existing plan if `daily_plans/{date}` already
+   exists. Scheduler retries are therefore side-effect free.
+3. **Inputs** — expected covers from bookings; weather from Open-Meteo, or the
+   deterministic offline stub when no API key is configured.
+4. **Gemini step 1** — a demand forecast is proposed, then validated. Anything
+   outside the contract falls back to the same-weekday baseline, and the plan
+   records which path was taken in `forecast_source`.
+5. **Deterministic core** — recipe explosion, FEFO consumption of today's
+   requirements, prep shortfalls, prep task ordering, then replenishment to par
+   from what is genuinely left.
+6. **Gemini step 2** — the frozen plan is handed to the model, which returns a
+   prioritisation and briefing in a fixed JSON shape. Invalid or unavailable
+   output falls back to a deterministic briefing built from the same plan.
+7. **Publish** — Python renders Markdown, the plan is stored, and the run log is
+   appended whether the run succeeded or failed.
+8. **Consumption** — the kitchen opens `GET /` on a phone; other systems read
+   `GET /plans/latest`.
+
+## Data note
+
+All restaurant names, menu data, recipes, sales history, bookings and inventory
+values in this repository are **synthetic and generic**. No real restaurant,
+supplier or customer data is used anywhere in the project.
