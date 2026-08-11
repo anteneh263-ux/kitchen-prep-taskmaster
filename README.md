@@ -11,7 +11,7 @@ Gemini, Cloud Run, Cloud Scheduler and Firestore.
 
 | | |
 | --- | --- |
-| **Hosted URL** | TO BE ADDED |
+| **Hosted URL** | https://kitchen-prep-viewer-358612956269.us-central1.run.app |
 | **Demo Video** | TO BE ADDED |
 | **GitHub Repository** | TO BE ADDED |
 
@@ -122,8 +122,8 @@ In brief:
 Cloud Scheduler (07:00 Europe/Oslo)
         │  HTTPS POST + OIDC token
         ▼
-Cloud Run  ──  FastAPI (kitchen_prep/server.py)
-        │      POST /runs/daily · GET / · GET /plans/latest · GET /healthz
+Private Cloud Run worker (kitchen_prep/server.py)
+        │  POST /runs/daily
         ▼
 Google ADK root_agent  ──  single tool: run_daily_prep
         ▼
@@ -137,8 +137,9 @@ Orchestrator (kitchen_prep/orchestrator.py)
         └─ Gemini step 2 ── prioritisation + briefing ──▶ CONTRACT CHECK ──▶ deterministic briefing on reject
         ▼
 Firestore ── daily_plans · run_logs · inventory
-        ▼
-GET /  (mobile page)     GET /plans/latest  (JSON)
+        ▲
+Public read-only Cloud Run viewer (kitchen_prep/public_server.py)
+        └─ GET / · GET /plans/latest · GET /health
 ```
 
 ## How Gemini Is Used
@@ -340,7 +341,7 @@ Deployment is **intentionally not automated** in this repository — the referen
 commands live in [`deploy/cloud_run.md`](deploy/cloud_run.md) and
 [`deploy/scheduler.md`](deploy/scheduler.md), to be run manually.
 
-**Cloud Run** — the container entrypoint is
+**Cloud Run worker** — the private container entrypoint is
 `uvicorn kitchen_prep.server:app --host 0.0.0.0 --port ${PORT:-8080}`:
 
 ```bash
@@ -356,6 +357,11 @@ gcloud run deploy kitchen-prep-taskmaster \
 ```
 
 `GOOGLE_API_KEY` should be supplied via Secret Manager, not `--set-env-vars`.
+
+The public read-only service runs `kitchen_prep.public_server:app` under a
+separate service account with only `roles/datastore.viewer`. It exposes `/`,
+`/plans/latest` and `/health`; `/runs/daily`, `/docs`, `/redoc` and
+`/openapi.json` are not registered. It has no access to `GOOGLE_API_KEY`.
 
 **Cloud Scheduler** — one authenticated job at 07:00 Europe/Oslo. The run date is
 computed server-side, so no date is passed:

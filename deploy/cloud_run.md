@@ -1,6 +1,12 @@
-# Cloud Run deployment (reference — not automated here)
+# Cloud Run deployment
 
-The service is a FastAPI app (`kitchen_prep/server.py`) served by Uvicorn.
+Deployment uses two FastAPI surfaces served by Uvicorn:
+
+- `kitchen_prep/server.py`: private worker invoked by Cloud Scheduler.
+- `kitchen_prep/public_server.py`: public read-only plan viewer.
+
+The separation keeps Cloud Run IAM as the worker's authentication boundary and
+ensures the public service does not import or expose `run_daily_prep`.
 
 ## Container entrypoint
 
@@ -56,3 +62,25 @@ gcloud run deploy kitchen-prep-taskmaster \
 With `KP_STORE=firestore`, plans/run-logs/inventory live in Firestore
 (`daily_plans`, `run_logs`, `inventory`). The published markdown is stored as a
 field on the `daily_plans/{date}` document.
+
+## Public read-only viewer
+
+The viewer uses a dedicated service account with `roles/datastore.viewer` only.
+It receives no Gemini secret and starts the read-only app explicitly:
+
+```bash
+gcloud run deploy kitchen-prep-viewer \
+  --source . \
+  --project="$PROJECT" \
+  --region="$REGION" \
+  --service-account="kitchen-prep-viewer@$PROJECT.iam.gserviceaccount.com" \
+  --command=uvicorn \
+  --args=kitchen_prep.public_server:app,--host,0.0.0.0,--port,8080 \
+  --port=8080 \
+  --set-env-vars=KP_STORE=firestore,GOOGLE_CLOUD_PROJECT="$PROJECT" \
+  --max-instances=3 \
+  --allow-unauthenticated
+```
+
+Public routes are limited to `GET /`, `GET /plans/latest`, and `GET /health`.
+The private run endpoint and FastAPI schema/documentation routes return 404.
