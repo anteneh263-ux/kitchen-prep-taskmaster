@@ -4,9 +4,29 @@ The service is a FastAPI app (`kitchen_prep/server.py`) served by Uvicorn.
 
 ## Container entrypoint
 
+The repository root contains a `Dockerfile`, so `gcloud run deploy --source .`
+builds from it rather than falling back to buildpacks. Its entrypoint is:
+
 ```
 uvicorn kitchen_prep.server:app --host 0.0.0.0 --port ${PORT:-8080}
 ```
+
+It is declared as `CMD ["sh", "-c", "exec uvicorn ..."]` so Cloud Run's injected
+`$PORT` expands and uvicorn runs as PID 1 (clean SIGTERM handling on scale-down).
+
+Notes on the image:
+
+- Base `python:3.12-slim`; dependencies come from `requirements.txt`.
+- Only `kitchen_prep/` and `scripts/` are copied. `.env`, `.git`, `.venv`,
+  `out/`, caches and tests are excluded by both the explicit `COPY` paths and
+  `.dockerignore`.
+- `scripts/generate_sales_history.py` runs at build time. The file is gitignored
+  but the deterministic fallback forecast reads it, so generating it during the
+  build keeps the image self-contained; the generator is seeded, so the result is
+  identical on every build. `scripts/verify_data.py` then runs as a build-time
+  gate, failing the build on a data-integrity regression.
+- The image runs as the unprivileged `appuser`. `/app` stays writable so the
+  local JSON store can create `out/` if `KP_STORE` is not set to `firestore`.
 
 ## Build & deploy (run manually when ready)
 

@@ -288,7 +288,7 @@ none of these.**
 pytest -m "not integration"
 ```
 
-**Result: 50 passed, 1 deselected** — no network, no API key, no cloud
+**Result: 61 passed, 1 deselected** — no network, no API key, no cloud
 resources required.
 
 ```bash
@@ -312,6 +312,7 @@ What the suite actually proves:
 | `test_pipeline_e2e_local.py` | Full offline run, end to end |
 | `test_prep_ids_stable.py` | Prep task ids and ordering are deterministic |
 | `test_home_render.py` / `test_server_home.py` | The mobile page renders, including the empty and degraded states |
+| `test_deployment_config.py` | The image starts the real app on `0.0.0.0` with Cloud Run's `$PORT`; `.env`, `.git`, `.venv` and `out/` stay out of the build context; all four routes answer, including before the first plan exists |
 | `test_gemini_integration.py` | *(integration)* With a real key, both steps must use the model — this test **fails** if the system silently degraded to a fallback |
 
 ## API Endpoints
@@ -440,11 +441,11 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   delivery date, but demand occurring between today and delivery is not
   subtracted. This is a deliberate, documented simplification in
   `pipeline/replenishment.py`.
-- **`gcloud run deploy --source .` needs a container entrypoint.** The correct
-  command is documented in `deploy/cloud_run.md`, but the repository contains no
-  `Dockerfile` or `Procfile`, so the buildpack has nothing to start. One of those
-  must be added before a first deploy — a deliberate source-code change that is
-  out of scope for this documentation pass.
+- **The container image has not been built or deployed yet.** A `Dockerfile` and
+  `.dockerignore` are in place and the start command is covered by tests, but
+  Docker is not available in the development environment, so the image has not
+  been built locally. The first `gcloud run deploy --source .` is also the first
+  real build.
 - **Bookings cover a fixed synthetic window** (2026-08-11 → 2026-08-16). A run
   for a date outside that window raises `KeyError`. A real deployment would read
   covers from a booking system.
@@ -579,6 +580,8 @@ The rendered briefing is written to `out/daily_plans/2026-08-14.md`.
 ```
 kitchen-prep-taskmaster-v2/
 ├── README.md
+├── Dockerfile                       # Cloud Run image (uvicorn on $PORT)
+├── .dockerignore
 ├── docs/
 │   └── architecture.md              # Mermaid diagram + enforcement points
 ├── deploy/
@@ -618,7 +621,7 @@ kitchen-prep-taskmaster-v2/
 ├── scripts/
 │   ├── generate_sales_history.py    # Seeded synthetic history with real signal
 │   └── verify_data.py               # Referential integrity + leakage checks
-├── tests/                           # 14 test files (50 offline tests, 1 integration)
+├── tests/                           # 15 test files (61 offline tests, 1 integration)
 ├── requirements.txt
 ├── pyproject.toml
 └── .env.example
