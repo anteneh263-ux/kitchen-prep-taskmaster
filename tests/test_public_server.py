@@ -37,6 +37,18 @@ def test_public_latest_returns_empty_state(empty_client):
     assert response.json() == {"detail": "no plans yet"}
 
 
+def test_public_history_returns_empty_list(empty_client):
+    response = empty_client.get("/plans")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_public_plan_by_date_returns_stable_missing_response(empty_client):
+    response = empty_client.get("/plans/2026-08-14")
+    assert response.status_code == 200
+    assert response.json() == {"detail": "plan not found", "date": "2026-08-14"}
+
+
 def test_public_health_is_ok(empty_client):
     response = empty_client.get("/health")
     assert response.status_code == 200

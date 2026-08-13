@@ -101,3 +101,12 @@ def test_norwegian_view_localizes_deterministic_reasoning():
     html = render_home(plan, language="no")
     assert "Deterministisk baseline basert på" in html
     assert "mean of the last four Fridays" not in html
+
+
+def test_render_home_shows_read_only_plan_history():
+    plan = _plan()
+    older = dict(plan, date="2026-08-13", expected_covers=76)
+    html = render_home(plan, language="en", available_plans=[plan, older])
+    assert "Plan history" in html
+    assert "2026-08-13 · 76 guests" in html
+    assert "?lang=en&amp;date=2026-08-13" in html

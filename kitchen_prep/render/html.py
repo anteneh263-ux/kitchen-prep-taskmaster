@@ -117,7 +117,11 @@ def _empty(message: str) -> str:
     return f'<p class="empty">{escape(message)}</p>'
 
 
-def render_home(plan: dict | None, language: str = "no") -> str:
+def render_home(
+    plan: dict | None,
+    language: str = "no",
+    available_plans: list[dict] | None = None,
+) -> str:
     language = "en" if language == "en" else "no"
     en = language == "en"
     switch = (
@@ -188,6 +192,18 @@ def render_home(plan: dict | None, language: str = "no") -> str:
 
     status_class = "status degraded" if degraded else "status"
     forecast_note = plan.get("forecast_note", "")
+    history_items = []
+    for historic in available_plans or []:
+        historic_date = str(historic.get("date", ""))
+        if not historic_date:
+            continue
+        selected = historic_date == str(plan.get("date"))
+        href = f"?lang={language}&amp;date={escape(historic_date)}"
+        label = f'{historic_date} · {historic.get("expected_covers", "—")} {"guests" if en else "gjester"}'
+        history_items.append(
+            f'<a class="chip" href="{href}"{(" aria-current=\"page\"" if selected else "")}>{escape(label)}</a>'
+        )
+    history_block = "".join(history_items)
     return f"""<!doctype html>
 <html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kitchen Prep — {escape(plan['date'])}</title><style>{_STYLE}</style></head><body><main class="shell">
@@ -204,6 +220,7 @@ def render_home(plan: dict | None, language: str = "no") -> str:
 </section>
 
 <div class="grid"><div class="stack">
+{f'<section class="panel"><header class="panel-head"><h2>{"Plan history" if en else "Planhistorikk"}</h2><p>{"Read-only Firestore plans" if en else "Skrivebeskyttede Firestore-planer"}</p></header><div class="driver-list">{history_block}</div></section>' if history_block else ''}
 <section class="panel"><header class="panel-head"><h2>{"Prioritized prep" if en else "Prioritert prep"}</h2><p>{"What the kitchen should start first" if en else "Det kjøkkenet bør starte med først"}</p></header>{prep_block}</section>
 <section class="panel"><header class="panel-head"><h2>{"Today’s shortfalls" if en else "Mangler i dag"}</h2><p>{"Required for service, separate from replenishment" if en else "Behov til service, adskilt fra bestilling"}</p></header>{short_block}</section>
 <section class="panel"><header class="panel-head"><h2>{"Replenishment orders" if en else "Bestillinger til par"}</h2><p>{"Calculated from inventory remaining after today’s consumption" if en else "Beregnet fra lager etter dagens forbruk"}</p></header>{order_block}</section>

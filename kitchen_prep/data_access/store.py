@@ -23,6 +23,7 @@ class BaseStore:
     def get_plan(self, date: str) -> dict | None: ...
     def save_plan(self, date: str, plan: dict, *, overwrite: bool = False) -> dict: ...
     def get_latest_plan(self) -> dict | None: ...
+    def list_plans(self, limit: int = 14) -> list[dict]: ...
     def append_run_log(self, run_id: str, entry: dict) -> None: ...
 
 
@@ -68,6 +69,13 @@ class LocalJsonStore(BaseStore):
         with open(plans[-1], encoding="utf-8") as fh:
             return json.load(fh)
 
+    def list_plans(self, limit: int = 14) -> list[dict]:
+        plans: list[dict] = []
+        for path in sorted(self.plans_dir.glob("*.json"), reverse=True)[:limit]:
+            with open(path, encoding="utf-8") as fh:
+                plans.append(json.load(fh))
+        return plans
+
     def append_run_log(self, run_id: str, entry: dict) -> None:
         with open(self.logs_dir / f"{run_id}.jsonl", "a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -110,6 +118,17 @@ class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credential
         for doc in q:
             return doc.to_dict()
         return None
+
+    def list_plans(self, limit: int = 14) -> list[dict]:
+        from google.cloud import firestore  # lazy import
+
+        query = (
+            self.db.collection("daily_plans")
+            .order_by("date", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        return [doc.to_dict() for doc in query]
 
     def append_run_log(self, run_id: str, entry: dict) -> None:
         self.db.collection("run_logs").document(run_id).collection("steps").add(entry)
