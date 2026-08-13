@@ -7,6 +7,7 @@ markdown -> persist. The run log is always written (finally), even on failure.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date as _date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -24,6 +25,9 @@ from .pipeline import replenishment as replen_pipe
 from .pipeline.baseline import baseline_forecast
 from .pipeline.forecast_validate import ForecastRejected, validate_and_build
 from .render import markdown as md_render
+
+
+logger = logging.getLogger(__name__)
 
 
 def _now_oslo() -> str:
@@ -44,8 +48,10 @@ def _resolve_forecast(date: str, covers: int, weather: dict, client) -> tuple[Fo
         forecast = validate_and_build(raw, forecast_date=date, expected_covers=covers)
         return forecast, "gemini_ok"
     except GeminiUnavailable as exc:
+        logger.warning("forecast fallback: model unavailable: %s", exc)
         return baseline_forecast(date, covers), f"fallback:model_unavailable:{exc}"
     except ForecastRejected as exc:
+        logger.warning("forecast fallback: model response rejected: %s", exc)
         return baseline_forecast(date, covers), f"fallback:rejected:{exc}"
 
 
@@ -108,6 +114,7 @@ def run_daily_prep(
             "covers_source": covers_source,
             "planning_basis": replen_pipe.PLANNING_BASIS,
             "forecast": forecast.to_dict(),
+            "forecast_note": note,
             "ingredient_requirements": required,
             "prep_tasks": prep_tasks,
             "fefo_consumption": consumption["fefo_consumption"],

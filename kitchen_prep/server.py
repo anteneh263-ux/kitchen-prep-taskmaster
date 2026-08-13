@@ -55,6 +55,7 @@ def runs_daily(req: RunRequest | None = None) -> dict[str, Any]:
         "replenishment_orders": len(plan["replenishment_orders"]),
         "waste_flagged": len(plan["waste_flagged"]),
         "forecast_source": plan["forecast"]["forecast_source"],
+        "forecast_note": plan.get("forecast_note", "unavailable"),
     }
 
 

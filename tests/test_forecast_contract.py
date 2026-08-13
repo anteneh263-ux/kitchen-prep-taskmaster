@@ -58,7 +58,7 @@ def test_chilled_gazpacho_soup_is_rejected():
         _validate(p)
 
 
-def test_chilled_gazpacho_soup_falls_back_deterministically(tmp_store):
+def test_chilled_gazpacho_soup_falls_back_deterministically(tmp_store, caplog):
     class GazpachoClient:
         def propose_forecast(self, context):
             p = _valid_proposed()
@@ -77,6 +77,8 @@ def test_chilled_gazpacho_soup_falls_back_deterministically(tmp_store):
 
     plan = run_daily_prep(DATE, store=tmp_store, client=GazpachoClient())
     assert plan["forecast"]["forecast_source"] == "deterministic_fallback"
+    assert "fallback:rejected:unknown dish_id: 'chilled_gazpacho_soup'" == plan["forecast_note"]
+    assert "forecast fallback: model response rejected" in caplog.text
 
 
 # --- 2. context + prompt carry the real menu and the authority ----------------

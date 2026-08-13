@@ -1,4 +1,6 @@
 """Programming errors must crash; only model-side failures use fallback."""
+import logging
+
 import pytest
 
 from kitchen_prep import config
@@ -23,10 +25,13 @@ class BuggyClient:
         return {}
 
 
-def test_model_unavailable_uses_fallback(tmp_store):
+def test_model_unavailable_uses_fallback(tmp_store, caplog):
+    caplog.set_level(logging.WARNING, logger="kitchen_prep.orchestrator")
     plan = run_daily_prep(config.DEMO_DATE, store=tmp_store, client=UnavailableClient())
     assert plan["forecast"]["forecast_source"] == "deterministic_fallback"
+    assert plan["forecast_note"] == "fallback:model_unavailable:simulated outage"
     assert plan["briefing_source"] == "deterministic_fallback"
+    assert "forecast fallback: model unavailable: simulated outage" in caplog.text
 
 
 def test_programming_error_propagates(tmp_store):
