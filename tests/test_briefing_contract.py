@@ -29,6 +29,8 @@ def test_deterministic_briefing_matches_contract():
     assert b["priority_task_ids"] == ["prep_bbq_ribs", "prep_classic_burger"]
     assert b["shortfall_actions"][0]["item_id"] == "beef_patty"
     assert b["shortfall_actions"][0]["requires_human_approval"] is True
+    assert "Today's shortfall" in b["shortfall_actions"][0]["recommended_action"]
+    assert "guests expected" in b["summary"]
     assert any("b06" in w for w in b["warnings"])
 
 

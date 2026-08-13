@@ -26,23 +26,23 @@ def build_deterministic_briefing(plan: dict) -> dict:
             {
                 "item_id": s["item_id"],
                 "recommended_action": (
-                    f"Mangel i dag: {s['shortfall']} {unit}. Prep/skaff før service."
+                    f"Today's shortfall: {s['shortfall']} {unit}. Prep or source before service."
                 ),
                 "requires_human_approval": True,
             }
         )
 
     warnings = [
-        f"Batch {b['batch_id']} ({b['item_id']}, {b['qty']}) utløpt {b['expiry_date']} — kast."
+        f"Batch {b['batch_id']} ({b['item_id']}, {b['qty']}) expired {b['expiry_date']} — discard."
         for b in waste
     ]
     if plan["forecast"]["forecast_source"] == "deterministic_fallback":
-        warnings.append("Prognose brukte deterministisk fallback (ingen modelloutput).")
+        warnings.append("Forecast used the deterministic fallback (no model output).")
 
     summary = (
-        f"{plan['expected_covers']} gjester ventet {plan['date']}. "
-        f"{len(prep_tasks)} prep-oppgaver, {len(shortfalls)} mangel(er) i dag, "
-        f"{len(plan['replenishment_orders'])} bestilling(er)."
+        f"{plan['expected_covers']} guests expected on {plan['date']}. "
+        f"{len(prep_tasks)} prep tasks, {len(shortfalls)} shortfalls today, "
+        f"{len(plan['replenishment_orders'])} replenishment orders."
     )
 
     briefing = {

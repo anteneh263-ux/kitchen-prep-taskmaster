@@ -106,7 +106,8 @@ def build_forecast_prompt(context: dict[str, Any]) -> str:
         "5. expected_qty must be a non-negative integer; confidence must be one "
         'of "high", "medium", "low"; reasoning must be a non-empty string; '
         "drivers must be a non-empty list of strings.\n"
-        "6. Return ONLY JSON, no prose and no markdown fences, matching: "
+        "6. Write all reasoning and driver strings in clear English.\n"
+        "7. Return ONLY JSON, no prose and no markdown fences, matching: "
         "{forecast_date, expected_covers, dishes:[{dish_id, expected_qty(int), "
         "confidence, reasoning}], drivers:[...]}\n"
         f"Context: {json.dumps(context, ensure_ascii=False, sort_keys=True, default=str)}"
@@ -171,6 +172,7 @@ class RealGeminiClient:  # pragma: no cover - requires network + credentials
     def propose_briefing(self, plan: dict[str, Any]) -> dict:
         prompt = (
             "Write a concise kitchen morning briefing. Do NOT change any numbers. "
+            "Write all user-facing strings in clear English. "
             "Return ONLY JSON: {summary, priority_task_ids:[...], shortfall_actions:"
             "[{item_id, recommended_action, requires_human_approval(bool)}], "
             f"warnings:[...]}}. Authoritative plan: {plan}"

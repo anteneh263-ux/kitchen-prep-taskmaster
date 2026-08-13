@@ -29,7 +29,8 @@ def test_full_pipeline_offline(tmp_store):
     if len(beef) >= 2:
         assert beef[0]["batch_id"] == "b01"
 
-    assert plan["briefing_markdown"].startswith("# Kjøkken-brief")
+    assert plan["briefing_markdown"].startswith("# Kitchen briefing")
+    assert "Expected guests" in plan["briefing_markdown"]
 
 
 def test_idempotent_no_duplicate(tmp_store):

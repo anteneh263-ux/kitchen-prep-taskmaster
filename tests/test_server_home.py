@@ -34,13 +34,13 @@ def test_home_returns_200_and_html(client_with_plan):
 
 def test_home_shows_prep_shortfalls_orders_waste(client_with_plan):
     body = client_with_plan.get("/").text
-    assert "Prep (prioritert)" in body
+    assert "Prioritert prep" in body
     assert "Mangler i dag" in body
-    assert "Bestillinger" in body
-    assert "Svinn" in body
+    assert "Bestillinger til par" in body
+    assert "Utgått svinn" in body
     # Real data from the demo run.
     assert "b06" in body  # expired pork_ribs batch
-    assert "beef_patty" in body
+    assert "Beef Patty" in body
 
 
 def test_plans_latest_is_json(client_with_plan):

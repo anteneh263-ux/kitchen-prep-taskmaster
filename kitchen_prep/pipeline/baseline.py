@@ -11,7 +11,7 @@ from ..contracts import DishForecast, Forecast
 from ..data_access import menu as menu_da
 from ..data_access import sales as sales_da
 
-WEEKDAY_NAMES = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
+WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 HISTORY_WEEKS = 4
 
@@ -35,9 +35,9 @@ def baseline_forecast(date: str, expected_covers: int) -> Forecast:
                 expected_qty=int(qty),
                 confidence="medium",
                 reasoning=(
-                    f"Deterministisk baseline: snitt siste {len(observations)} "
-                    f"{WEEKDAY_NAMES[weekday]}(er) = {per_cover:.4f} per gjest "
-                    f"x {expected_covers} gjester = {qty}"
+                    f"Deterministic baseline: mean of the last {len(observations)} "
+                    f"{WEEKDAY_NAMES[weekday]} observations = {per_cover:.4f} per guest "
+                    f"x {expected_covers} guests = {qty}"
                 ),
             )
         )

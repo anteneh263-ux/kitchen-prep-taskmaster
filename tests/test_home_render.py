@@ -42,14 +42,16 @@ def test_render_home_contains_all_sections():
     assert "deterministic_fallback" in html
     assert "2026-08-11T07:00:00+02:00" in html
     assert "DEGRADERT" in html  # run status reflects fallback
+    assert "Klar for service" in html
+    assert "Classic Cheeseburger" in html  # human name, not only machine id
     # Prep
     assert "bbq_ribs" in html
     # Shortfalls
-    assert "Mangler i dag" in html and "beef_patty" in html
+    assert "Mangler i dag" in html and "Beef Patty" in html
     # Orders
-    assert "Bestillinger" in html and "burger_bun" in html and "BakeryCo" in html
+    assert "Bestillinger" in html and "Burger Bun" in html and "BakeryCo" in html
     # Waste
-    assert "Svinn" in html and "b06" in html
+    assert "svinn" in html.lower() and "b06" in html
 
 
 def test_render_home_status_ok_when_no_fallback():
@@ -57,7 +59,7 @@ def test_render_home_status_ok_when_no_fallback():
     plan["forecast"]["forecast_source"] = "gemini"
     plan["briefing_source"] = "gemini"
     html = render_home(plan)
-    assert ">OK<" in html
+    assert "OPERATIV" in html
     assert "DEGRADERT" not in html
 
 
@@ -70,13 +72,13 @@ def test_render_home_handles_no_plan():
 def test_render_home_supports_english():
     html = render_home(_plan(), language="en")
     assert '<html lang="en">' in html
-    assert "Kitchen briefing" in html
-    assert "80</strong> expected guests" in html
-    assert "Forecast source" in html
-    assert "DEGRADED (fallback used)" in html
+    assert "Ready for service" in html
+    assert "Expected guests" in html
+    assert "Forecast" in html
+    assert "DEGRADED" in html
     assert "Today’s shortfalls" in html
     assert "Replenishment orders" in html
-    assert "Waste (expired batches)" in html
+    assert "Expired waste" in html
     assert 'href="?lang=no"' in html
 
 
@@ -84,3 +86,18 @@ def test_render_home_english_empty_state():
     html = render_home(None, language="en")
     assert '<html lang="en">' in html
     assert "No plan has been published yet." in html
+
+
+def test_norwegian_view_localizes_deterministic_reasoning():
+    plan = _plan()
+    plan["forecast"]["dishes"] = [
+        {
+            "dish_id": "classic_burger",
+            "expected_qty": 42,
+            "confidence": "medium",
+            "reasoning": "Deterministic baseline: mean of the last four Fridays.",
+        }
+    ]
+    html = render_home(plan, language="no")
+    assert "Deterministisk baseline basert på" in html
+    assert "mean of the last four Fridays" not in html
