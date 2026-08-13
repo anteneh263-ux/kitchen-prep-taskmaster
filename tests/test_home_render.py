@@ -24,6 +24,15 @@ def _plan():
         "waste_flagged": [
             {"batch_id": "b06", "item_id": "pork_ribs", "qty": 7, "expiry_date": "2026-08-13"}
         ],
+        "briefing": {
+            "summary": "80 guests expected. One shortfall needs attention.",
+            "shortfall_actions": [{
+                "item_id": "beef_patty",
+                "recommended_action": "Source 31 patties before service.",
+                "requires_human_approval": True,
+            }],
+            "warnings": ["Discard expired batch b06."],
+        },
     }
 
 
@@ -112,3 +121,24 @@ def test_render_home_shows_read_only_plan_history():
     assert "Plan history" in html
     assert "2026-08-13 · 76 guests" in html
     assert "?lang=en&amp;date=2026-08-13" in html
+
+
+def test_render_home_exposes_agent_briefing_and_human_approval_boundary():
+    html = render_home(_plan(), language="en")
+    assert "Agent briefing" in html
+    assert "AI recommendations; arithmetic remains deterministic" in html
+    assert "80 guests expected. One shortfall needs attention." in html
+    assert "Source 31 patties before service." in html
+    assert "Human approval required" in html
+    assert "Discard expired batch b06." in html
+
+
+def test_render_home_escapes_agent_briefing_content():
+    plan = _plan()
+    plan["briefing"]["summary"] = '<script>alert("x")</script>'
+    plan["briefing"]["shortfall_actions"][0]["recommended_action"] = "<b>unsafe</b>"
+    html = render_home(plan)
+    assert "<script>" not in html
+    assert "<b>unsafe</b>" not in html
+    assert "&lt;script&gt;" in html
+    assert "&lt;b&gt;unsafe&lt;/b&gt;" in html

@@ -138,6 +138,11 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
 .forecast-top { display: flex; justify-content: space-between; gap: .75rem; }
 .reason { color: var(--muted); font-size: .76rem; margin-top: .2rem; }
 .confidence { color: var(--brand); font-size: .68rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; margin-top: .12rem; }
+.briefing-summary { margin: 0; padding: 1rem 1.15rem; border-bottom: 1px solid var(--line); }
+.action-badge { display: inline-block; margin-top: .35rem; border-radius: 999px; padding: .2rem .5rem;
+  color: var(--warn); background: #f7ecdd; font-size: .65rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }
+.warning-list { margin: 0; padding: .85rem 1.15rem .95rem 2.2rem; color: var(--warn); font-size: .78rem; }
+.warning-list li + li { margin-top: .35rem; }
 .footer { color: var(--muted); text-align: center; font-size: .72rem; margin-top: 1.25rem; }
 @media (max-width: 780px) { .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; } }
 @media (max-width: 430px) { .shell { width: min(100% - 1rem, 1080px); } .hero { border-radius: 16px; }
@@ -150,7 +155,7 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
   .chip { background: #243228; color: #c4d0c8; } a.chip:hover { background: #2c4a38; }
   .row:hover, tbody tr:hover td { background: #1b2a21; }
   .card--alert { border-color: #5a2f2f; } .card--alert .value { color: #f0a1a1; }
-  .alert .rank { background: #3a2f1f; } .danger .rank { background: #3a2323; } }
+  .alert .rank, .action-badge { background: #3a2f1f; } .danger .rank { background: #3a2323; } }
 """.strip()
 
 
@@ -221,6 +226,25 @@ def render_home(
     )
     waste_block = f'<ul class="rows">{waste_rows}</ul>' if waste else _empty("No expired waste." if en else "Ingen utgått svinn.")
 
+    briefing = plan.get("briefing", {})
+    briefing_summary = str(briefing.get("summary", "")).strip()
+    action_rows = "".join(
+        f'<li class="row alert"><span class="rank">!</span><div><div class="name">{escape(_item_name(action["item_id"]))}</div>'
+        f'<div class="reason">{escape(str(action.get("recommended_action", "")))}</div>'
+        f'{("<span class=\"action-badge\">" + ("Human approval required" if en else "Krever menneskelig godkjenning") + "</span>") if action.get("requires_human_approval") else ""}'
+        f'</div></li>'
+        for action in briefing.get("shortfall_actions", [])
+        if action.get("item_id")
+    )
+    warning_items = "".join(
+        f'<li>{escape(str(warning))}</li>' for warning in briefing.get("warnings", []) if str(warning).strip()
+    )
+    briefing_content = (
+        (f'<p class="briefing-summary">{escape(briefing_summary)}</p>' if briefing_summary else "")
+        + (f'<ul class="rows">{action_rows}</ul>' if action_rows else "")
+        + (f'<ul class="warning-list">{warning_items}</ul>' if warning_items else "")
+    ) or _empty("No agent briefing." if en else "Ingen agentbriefing.")
+
     drivers = forecast.get("drivers", [])
     driver_block = "".join(f'<span class="chip">{escape(_human_id(str(driver)))}</span>' for driver in drivers)
     forecast_rows = "".join(
@@ -263,6 +287,7 @@ def render_home(
 
 <div class="grid"><div class="stack">
 {f'<section class="panel"><header class="panel-head"><h2>{"Plan history" if en else "Planhistorikk"}</h2><p>{"Read-only Firestore plans" if en else "Skrivebeskyttede Firestore-planer"}</p></header><div class="driver-list">{history_block}</div></section>' if history_block else ''}
+<section class="panel"><header class="panel-head"><h2>{"Agent briefing" if en else "Agentbriefing"}</h2><p>{"AI recommendations; arithmetic remains deterministic" if en else "AI-anbefalinger; beregningene er fortsatt deterministiske"}</p></header>{briefing_content}</section>
 <section class="panel"><header class="panel-head"><h2>{"Prioritized prep" if en else "Prioritert prep"}</h2><p>{"What the kitchen should start first" if en else "Det kjøkkenet bør starte med først"}</p></header>{prep_block}</section>
 <section class="panel"><header class="panel-head"><h2>{"Today’s shortfalls" if en else "Mangler i dag"}</h2><p>{"Required for service, separate from replenishment" if en else "Behov til service, adskilt fra bestilling"}</p></header>{short_block}</section>
 <section class="panel"><header class="panel-head"><h2>{"Replenishment orders" if en else "Bestillinger til par"}</h2><p>{"Calculated from inventory remaining after today’s consumption" if en else "Beregnet fra lager etter dagens forbruk"}</p></header>{order_block}</section>
