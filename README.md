@@ -6,8 +6,9 @@ separates today's shortfalls from tomorrow's orders, flags expiring stock, and
 publishes a one-screen briefing the kitchen can read on a phone. No chat, no
 prompting, no human in the loop for the routine path.
 
-Built for the **All Things Agentic** hackathon (Taskmaster track) on Google ADK,
-Gemini, Cloud Run, Cloud Scheduler and Firestore.
+Built for the **All Things Agentic** hackathon (Taskmaster track) on the Google
+Gen AI SDK and Gemini, with an optional Google ADK adapter, Cloud Run, Cloud
+Scheduler and Firestore.
 
 | | |
 | --- | --- |
@@ -51,9 +52,9 @@ every day doing arithmetic instead of cooking.
 Kitchen Prep Taskmaster runs the whole morning decision as one unattended,
 idempotent job.
 
-At **07:00 Europe/Oslo**, Cloud Scheduler makes an OIDC-authenticated call to a
-Cloud Run service. A Google ADK agent invokes its single tool, `run_daily_prep`,
-and the pipeline:
+At **07:00 Europe/Oslo**, Cloud Scheduler makes an OIDC-authenticated call to the
+private Cloud Run worker. FastAPI invokes `run_daily_prep` directly, and the
+pipeline uses Gemini through the Google Gen AI SDK:
 
 1. Reads today's expected covers from bookings, plus weather.
 2. **Gemini forecasts demand per dish** — with drivers and reasoning.
@@ -126,7 +127,7 @@ Cloud Scheduler (07:00 Europe/Oslo)
 Private Cloud Run worker (kitchen_prep/server.py)
         │  POST /runs/daily
         ▼
-Google ADK root_agent  ──  single tool: run_daily_prep
+FastAPI route POST /runs/daily
         ▼
 Orchestrator (kitchen_prep/orchestrator.py)
         │
@@ -141,12 +142,17 @@ Firestore ── daily_plans · run_logs · inventory
         ▲
 Public read-only Cloud Run viewer (kitchen_prep/public_server.py)
         └─ GET / · GET /plans/latest · GET /health
+
+Optional interactive adapter: Google ADK `root_agent` exposes the same
+`run_daily_prep` operation as its only tool for `adk web`; it is not in the
+scheduled production request path.
 ```
 
 ## How Gemini Is Used
 
-Gemini (`gemini-3.5-flash`) is called at exactly **two** points per run. Nowhere
-else in the codebase does a model call happen.
+The scheduled production pipeline calls Gemini (`gemini-3.5-flash`) at exactly
+**two** schema-bounded points through the Google Gen AI SDK. The optional ADK
+developer adapter uses its own routing model interaction when a user invokes it.
 
 ### Step 1 — Demand forecasting
 
@@ -185,8 +191,8 @@ restate a number differently from the plan.
 
 ### What Gemini is structurally prevented from doing
 
-- It is exposed **one** tool, `run_daily_prep`, and the agent instruction states
-  the tool is the source of truth.
+- In the optional ADK adapter it is exposed **one** tool, `run_daily_prep`, and
+  the agent instruction states that tool is the source of truth.
 - Its forecast cannot enter the pipeline without passing validation.
 - Its briefing sees the plan only after all quantities are final.
 - It cannot approve a menu or portion change; the briefing contract carries a
@@ -199,8 +205,9 @@ restate a number differently from the plan.
 
 | Layer | Choice |
 | --- | --- |
-| Agent framework | **Google ADK** (`google-adk`) — `root_agent` with a single tool |
-| Model | **Gemini `gemini-3.5-flash`** via `google-genai` |
+| Production agent framework | **Google Gen AI SDK** (`google-genai`) — two schema-bounded Gemini judgment steps |
+| Optional interactive adapter | **Google ADK** (`google-adk`) — `root_agent` with the same single pipeline tool |
+| Model | **Gemini `gemini-3.5-flash`** |
 | API | **FastAPI** + **Uvicorn** |
 | Compute | **Cloud Run** (`--no-allow-unauthenticated`) |
 | Scheduling | **Cloud Scheduler** with OIDC service-account auth |
@@ -258,13 +265,13 @@ The plan JSON and the rendered `.md` briefing are written to
 `out/daily_plans/`, and the step log to `out/run_logs/`. The `out/` directory is
 gitignored.
 
-### Run it as a service or as an agent
+### Run the production service or optional ADK adapter
 
 ```bash
 # FastAPI service on http://localhost:8080
 uvicorn kitchen_prep.server:app --port 8080
 
-# ADK developer UI (run from the repository root; discovers kitchen_prep/agent.py)
+# Optional ADK developer UI (not the scheduled production path)
 adk web
 ```
 

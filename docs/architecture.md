@@ -4,8 +4,11 @@
 
 **Gemini provides judgment. Deterministic Python owns every number.**
 
-Gemini is called exactly twice per run, at two controlled, schema-bounded points.
-Neither call is allowed to become the source of an authoritative quantity.
+The scheduled production pipeline calls Gemini exactly twice per run through the
+Google Gen AI SDK, at two controlled, schema-bounded points. Neither call is
+allowed to become the source of an authoritative quantity. The optional ADK
+developer adapter is a separate interactive entry point and is not used by
+Cloud Scheduler.
 
 | Gemini may | Gemini may never |
 | --- | --- |
@@ -37,7 +40,7 @@ flowchart TD
         API --- HEALTH
     end
 
-    subgraph ADK["Google ADK agent — kitchen_prep/agent.py"]
+    subgraph ADK["Optional interactive adapter — not in scheduled path"]
         ROOT["root_agent kitchen_prep_taskmaster<br/>model gemini-3.5-flash"]
         TOOL["Only exposed tool<br/>run_daily_prep(date)"]
         ROOT --> TOOL
@@ -88,8 +91,8 @@ flowchart TD
     end
 
     SCHED -- "HTTPS POST with OIDC token<br/>audience = service URL" --> API
-    POST --> ROOT
-    TOOL --> ORCH
+    POST --> ORCH
+    TOOL -. "optional adk web invocation" .-> ORCH
     BOOK --> ORCH
     WX --> ORCH
     SALES --> BASE
@@ -136,7 +139,8 @@ transport and storage.
 
 | Boundary | Enforced by |
 | --- | --- |
-| Only one tool is reachable by the model | `kitchen_prep/agent.py` — `tools=[run_daily_prep]` |
+| Production model calls are limited to two schema-bounded operations | `kitchen_prep/gemini/client.py` — Google Gen AI SDK calls only `propose_forecast` and `propose_briefing` |
+| The optional ADK adapter exposes only one tool | `kitchen_prep/agent.py` — `tools=[run_daily_prep]`; it is not in the scheduled production path |
 | A proposed forecast cannot enter the pipeline unchecked | `kitchen_prep/pipeline/forecast_validate.py` raises `ForecastRejected`; the orchestrator substitutes `baseline_forecast()` |
 | The model cannot silently break the run | `kitchen_prep/gemini/client.py` — only 408/429/5xx/network map to `GeminiUnavailable`; 400/401/403/404 crash rather than degrade quietly |
 | The briefing cannot change the plan's shape | `kitchen_prep/contracts.py` — `validate_briefing()` |
@@ -167,13 +171,13 @@ Known Limitations in the README.
    exists. Scheduler retries are therefore side-effect free.
 3. **Inputs** — expected covers from bookings; weather from Open-Meteo, or the
    deterministic offline stub when no API key is configured.
-4. **Gemini step 1** — a demand forecast is proposed, then validated. Anything
+4. **Gemini step 1 via Google Gen AI SDK** — a demand forecast is proposed, then validated. Anything
    outside the contract falls back to the same-weekday baseline, and the plan
    records which path was taken in `forecast_source`.
 5. **Deterministic core** — recipe explosion, FEFO consumption of today's
    requirements, prep shortfalls, prep task ordering, then replenishment to par
    from what is genuinely left.
-6. **Gemini step 2** — the frozen plan is handed to the model, which returns a
+6. **Gemini step 2 via Google Gen AI SDK** — the frozen plan is handed to the model, which returns a
    prioritisation and briefing in a fixed JSON shape. Invalid or unavailable
    output falls back to a deterministic briefing built from the same plan.
 7. **Publish** — Python renders Markdown, the plan is stored, and the run log is
