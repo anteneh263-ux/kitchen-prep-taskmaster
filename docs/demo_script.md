@@ -29,7 +29,8 @@ Show the architecture diagram in `docs/architecture.md`.
 > deterministic fallback keeps the kitchen running if the model is unavailable
 > or returns an invalid forecast. Firestore stores the plan and audit log. A
 > separate public service can only read plans; it cannot trigger a run and has
-> no Gemini secret.
+> no Gemini secret. Dated inventory snapshots make retries and forced reruns
+> replay-safe, so the same stock is never consumed twice.
 
 ## 1:05–1:35 — Visible Google Cloud proof
 
@@ -41,6 +42,9 @@ the following visible:
 - latest ready revision;
 - 100% traffic;
 - authentication required.
+
+The expected worker revision is `kitchen-prep-taskmaster-web-00006-jgp`. The
+public viewer revision is `kitchen-prep-viewer-00003-gts`.
 
 Then briefly show Cloud Scheduler job `kitchen-prep-daily`, enabled with schedule
 `0 7 * * *` and timezone `Europe/Oslo`.
@@ -74,7 +78,8 @@ Point to these live results in the viewer:
 
 - expected guests;
 - forecast and briefing sources;
-- `OK` or clearly disclosed degraded status;
+- `OPERATIONAL` or clearly disclosed degraded status;
+- `date_input_output_snapshot` in the run-integrity panel;
 - prioritized prep tasks;
 - today's shortfalls;
 - replenishment orders and delivery dates;
@@ -83,7 +88,9 @@ Point to these live results in the viewer:
 > This is not model-written prose pretending to take action. The workflow has
 > transformed bookings, weather, sales history, recipes and inventory batches
 > into a validated plan stored in Firestore. The model provides judgment, while
-> deterministic code owns every quantity a cook or supplier would act on.
+> deterministic code owns every quantity a cook or supplier would act on. The
+> dated inventory basis also proves that a forced replay starts from the same
+> frozen stock snapshot instead of consuming the previous output again.
 
 ## 3:10–3:40 — Reliability and reproducibility
 

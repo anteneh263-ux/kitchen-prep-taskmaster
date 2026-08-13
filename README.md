@@ -12,7 +12,7 @@ Scheduler and Firestore.
 
 | | |
 | --- | --- |
-| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00004-lqf` in `europe-north1` (private, authenticated) |
+| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00006-jgp` in `europe-north1` (private, authenticated) |
 | **Hosted judge URL** | https://kitchen-prep-viewer-373405758807.europe-north1.run.app |
 | **Demo Video** | TO BE ADDED |
 | **GitHub Repository** | https://github.com/anteneh263-ux/kitchen-prep-taskmaster |
@@ -352,7 +352,7 @@ Google Cloud Run in `europe-north1`. The reproducible commands live in
 
 Verified production state on 2026-08-13:
 
-- private worker revision `kitchen-prep-taskmaster-web-00004-lqf`, serving 100%
+- private worker revision `kitchen-prep-taskmaster-web-00006-jgp`, serving 100%
   of traffic;
 - Firestore persistence enabled with `KP_STORE=firestore`;
 - Secret Manager injects `GOOGLE_API_KEY` at runtime;
@@ -362,7 +362,7 @@ Verified production state on 2026-08-13:
   `forecast_note: gemini_ok`, and `briefing_source: gemini`.
 
 The worker remains private. A separate public, read-only judge viewer runs as
-`kitchen-prep-viewer-00001-pk4` with only Firestore viewer permission. It
+`kitchen-prep-viewer-00003-gts` with only Firestore viewer permission. It
 receives no Gemini secret, and `/runs/daily`, `/docs`, `/redoc` and
 `/openapi.json` all return 404.
 
@@ -607,14 +607,19 @@ system produces identical output on any machine, offline.
 ## Demo
 
 - **Cloud Run worker:** deployed privately; revision
-  `kitchen-prep-taskmaster-web-00004-lqf`
+  `kitchen-prep-taskmaster-web-00006-jgp`
 - **Judge-facing viewer:**
   https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 - **Demo Video:** TO BE ADDED
 - **GitHub Repository:** https://github.com/anteneh263-ux/kitchen-prep-taskmaster
 - **Demo script:** [`docs/demo_script.md`](docs/demo_script.md)
+- **Devpost submission copy:**
+  [`docs/devpost_submission.md`](docs/devpost_submission.md)
 - **Judge testing instructions:**
   [`docs/judge_testing_instructions.md`](docs/judge_testing_instructions.md)
+- **Recording runbook:** [`docs/recording_runbook.md`](docs/recording_runbook.md)
+- **Final submission checklist:**
+  [`docs/final_submission_checklist.md`](docs/final_submission_checklist.md)
 
 **Reference demo date: `2026-08-14`** — 80 expected covers. The offline run
 produces, from the committed seed inventory:
