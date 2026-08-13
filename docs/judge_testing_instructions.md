@@ -13,10 +13,13 @@ supported language.
 2. The status is `OK` when both forecast and briefing sources are `gemini`.
 3. The page shows expected guests, prioritized prep, today's shortfalls,
    replenishment orders, delivery dates and expired-batch waste.
-4. The JSON representation is available at `/plans/latest`.
-5. The public service is read-only: `POST /runs/daily`, `/docs`, `/redoc` and
+4. The run integrity panel identifies the dated input/output inventory snapshot
+   basis, and a forced rerun replays the original input without double-consuming.
+5. The JSON representation is available at `/plans/latest`; capped read-only
+   history is available at `/plans` and `/plans/{date}`.
+6. The public service is read-only: `POST /runs/daily`, `/docs`, `/redoc` and
    `/openapi.json` return 404.
-6. The health endpoint is `/health`.
+7. The health endpoint is `/health`.
 
 ## Reproducing locally
 

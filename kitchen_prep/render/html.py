@@ -228,6 +228,7 @@ def render_home(
 <section class="panel"><header class="panel-head"><h2>{"Run integrity" if en else "Kjøringsintegritet"}</h2><p>{"Model paths and audit status" if en else "Modellbaner og revisjonsstatus"}</p></header>
 <div class="source"><span>{"Forecast" if en else "Prognose"}</span><strong>{escape(str(forecast.get('forecast_source', '')))}</strong></div>
 <div class="source"><span>{"Briefing" if en else "Briefing"}</span><strong>{escape(str(plan.get('briefing_source', '')))}</strong></div>
+<div class="source"><span>{"Inventory" if en else "Lager"}</span><strong>{escape(str(plan.get('inventory_basis', 'seed_inventory')))}</strong></div>
 <div class="source"><span>{"Diagnostic" if en else "Diagnostikk"}</span><strong>{escape(str(forecast_note or '—'))}</strong></div></section>
 <section class="panel"><header class="panel-head"><h2>{"Forecast drivers" if en else "Prognosedrivere"}</h2><p>{"Signals used by the validated demand proposal" if en else "Signaler brukt i validert etterspørselsforslag"}</p></header><div class="driver-list">{driver_block or '<span class="chip">—</span>'}</div>{forecast_rows}</section>
 <section class="panel"><header class="panel-head"><h2>{"Expired waste" if en else "Utgått svinn"}</h2><p>{"Removed before FEFO consumption" if en else "Fjernet før FEFO-forbruk"}</p></header>{waste_block}</section>

@@ -138,7 +138,7 @@ Orchestrator (kitchen_prep/orchestrator.py)
         │
         └─ Gemini step 2 ── prioritisation + briefing ──▶ CONTRACT CHECK ──▶ deterministic briefing on reject
         ▼
-Firestore ── daily_plans · run_logs · inventory
+Firestore ── daily_plans · run_logs · inventory_snapshots
         ▲
 Public read-only Cloud Run viewer (kitchen_prep/public_server.py)
         └─ GET / · GET /plans/latest · GET /health
@@ -414,10 +414,10 @@ gcloud scheduler jobs create http kitchen-prep-daily \
 Cloud Run is deployed `--no-allow-unauthenticated`, only that service account can
 invoke the endpoint.
 
-**Firestore** — with `KP_STORE=firestore`, plans and run logs live in
-`daily_plans` and `run_logs`. The published Markdown is stored as a field on the
-`daily_plans` document for the date. See Known Limitations for the current status
-of the `inventory` collection.
+**Firestore** — with `KP_STORE=firestore`, plans, run logs and replay-safe stock
+snapshots live in `daily_plans`, `run_logs` and `inventory_snapshots`. The
+published Markdown is stored on the dated plan; each inventory document freezes
+the dated input and post-consumption output batches.
 
 ## Safety and Reliability
 

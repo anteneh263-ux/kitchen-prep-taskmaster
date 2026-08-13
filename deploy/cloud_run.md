@@ -59,9 +59,10 @@ gcloud run deploy kitchen-prep-taskmaster-web \
 
 ## Persistence
 
-With `KP_STORE=firestore`, plans/run-logs/inventory live in Firestore
-(`daily_plans`, `run_logs`, `inventory`). The published markdown is stored as a
-field on the `daily_plans/{date}` document.
+With `KP_STORE=firestore`, plans, run logs and replay-safe dated inventory live
+in Firestore (`daily_plans`, `run_logs`, `inventory_snapshots`). The published
+markdown is stored on `daily_plans/{date}`; `inventory_snapshots/{date}` stores
+the frozen input and post-consumption output batches.
 
 ## Public read-only viewer
 

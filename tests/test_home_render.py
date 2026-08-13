@@ -8,6 +8,7 @@ def _plan():
         "expected_covers": 80,
         "forecast": {"forecast_source": "deterministic_fallback"},
         "briefing_source": "deterministic_fallback",
+        "inventory_basis": "date_input_output_snapshot",
         "generated_at": "2026-08-11T07:00:00+02:00",
         "prep_tasks": [
             {"task_id": "prep_bbq_ribs", "dish_id": "bbq_ribs", "qty": 19, "prep_minutes": 76.0, "priority": 1},
@@ -75,6 +76,7 @@ def test_render_home_supports_english():
     assert "Ready for service" in html
     assert "Expected guests" in html
     assert "Forecast" in html
+    assert "date_input_output_snapshot" in html
     assert "DEGRADED" in html
     assert "Today’s shortfalls" in html
     assert "Replenishment orders" in html
