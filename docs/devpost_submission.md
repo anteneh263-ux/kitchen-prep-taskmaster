@@ -9,8 +9,8 @@ Kitchen Prep Taskmaster
 
 ## Tagline
 
-An autonomous morning operations agent that turns demand, recipes and
-batch-level inventory into a validated kitchen prep and replenishment plan.
+The autonomous kitchen agent that runs the daily prep-and-ordering cycle and
+shows its work.
 
 ## Category
 
@@ -40,6 +40,39 @@ I built Kitchen Prep Taskmaster to complete that whole workflow unattended and
 to leave behind an operational plan that a cook can act on, not another chat
 response.
 
+## What makes it innovative
+
+Kitchen Prep Taskmaster is not another inventory app that waits to be opened.
+It is a self-running, auditable operations agent. The innovation is not the
+number of restaurant-management features; it is the trust architecture beneath
+the workflow.
+
+**Trust by construction — AI proposes, deterministic code decides.** Gemini is
+confined to two schema-bounded roles: proposing demand and writing the final
+briefing. It never computes or changes an authoritative ingredient, inventory,
+shortfall, order or delivery quantity. Python validates every forecast against
+the known menu, authoritative date and covers, strict types and a dishes-per-
+cover safety band. An unavailable or rejected proposal automatically activates
+a deterministic baseline, and the published plan visibly records which path
+was used.
+
+**A Taskmaster, not a tool.** Cloud Scheduler starts the complete workflow at
+07:00 without a chat, button click or open application. The agent resolves
+demand inputs, obtains weather context, forecasts dishes, expands recipes,
+consumes batch inventory using FEFO, calculates prep and replenishment, creates
+the briefing and publishes the result end to end.
+
+**Reproducibility as a design principle.** Every attempt appends a step-by-step
+run log even when execution fails. Each operational date has a replay-safe,
+frozen inventory input and output snapshot; retries are idempotent, and forced
+replays reproduce the same FEFO consumption instead of consuming stock twice.
+Every published plan identifies its forecast, briefing, inventory and planning
+basis.
+
+The project deliberately demonstrates this architecture on synthetic data for
+one kitchen. It is a working agent architecture and hackathon prototype, not a
+claim of being a mature restaurant-management product.
+
 ## What it does
 
 - Runs automatically every morning through Cloud Scheduler and authenticated
@@ -62,7 +95,8 @@ response.
   frozen.
 - Stores plans, snapshots and audit logs in Firestore.
 - Publishes an English/Norwegian responsive dashboard with plan history,
-  forecast explanations and run-integrity evidence.
+  forecast explanations, an agent briefing, run-integrity evidence and a visual
+  five-step autonomous execution trace.
 
 ## How I built it
 
@@ -148,14 +182,14 @@ stock.
 - Private worker: `kitchen-prep-taskmaster-web`, region `europe-north1`, current
   revision `kitchen-prep-taskmaster-web-00006-jgp`.
 - Public read-only viewer: `kitchen-prep-viewer`, current revision
-  `kitchen-prep-viewer-00003-gts`.
+  `kitchen-prep-viewer-00007-zld`.
 - Cloud Scheduler: `kitchen-prep-daily`, enabled at `0 7 * * *`, timezone
   `Europe/Oslo`.
 - Verified production run: `forecast_source: gemini`,
   `forecast_note: gemini_ok`, `briefing_source: gemini`.
 - Verified forced replay: identical FEFO consumption and remaining stock, with
   `inventory_basis: date_input_output_snapshot`.
-- Offline test suite: 117 passed, 1 integration test skipped without a live key.
+- Offline test suite: 121 passed, 1 integration test skipped without a live key.
 
 ## Links
 
@@ -182,12 +216,14 @@ No credentials are required for the judge-facing read-only application:
 
 https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 
-The interface defaults to English. Verify the current operational status,
-Gemini forecast and briefing sources, forecast drivers, prioritized prep,
-shortfalls, replenishment orders, expired waste, dated inventory snapshot basis
-and plan history. JSON is available from `/plans/latest`; capped history is
-available from `/plans` and `/plans/{date}`. The public service is intentionally
-read-only: `POST /runs/daily`, `/docs`, `/redoc` and `/openapi.json` return 404.
-The private worker execution and Google Cloud Console evidence are demonstrated
-in the submission video. Full local and cloud reproduction steps are in the
-public repository README.
+The interface defaults to English. Start with the five-step **Autonomous run**
+panel, which shows the production plan's input source, Gemini forecast,
+validation result, deterministic FEFO/planning basis and published briefing.
+Then inspect the human-approval boundary in **Agent briefing**, forecast drivers,
+prioritized prep, shortfalls, replenishment orders, expired waste, dated
+inventory snapshot basis and plan history. JSON is available from
+`/plans/latest`; capped history is available from `/plans` and `/plans/{date}`.
+The public service is intentionally read-only: `POST /runs/daily`, `/docs`,
+`/redoc` and `/openapi.json` return 404. The private worker execution and Google
+Cloud Console evidence are demonstrated in the submission video. Full local and
+cloud reproduction steps are in the public repository README.

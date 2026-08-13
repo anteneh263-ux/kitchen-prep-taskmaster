@@ -362,7 +362,7 @@ Verified production state on 2026-08-13:
   `forecast_note: gemini_ok`, and `briefing_source: gemini`.
 
 The worker remains private. A separate public, read-only judge viewer runs as
-`kitchen-prep-viewer-00003-gts` with only Firestore viewer permission. It
+`kitchen-prep-viewer-00007-zld` with only Firestore viewer permission. It
 receives no Gemini secret, and `/runs/daily`, `/docs`, `/redoc` and
 `/openapi.json` all return 404.
 

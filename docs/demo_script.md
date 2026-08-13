@@ -44,7 +44,7 @@ the following visible:
 - authentication required.
 
 The expected worker revision is `kitchen-prep-taskmaster-web-00006-jgp`. The
-public viewer revision is `kitchen-prep-viewer-00003-gts`.
+public viewer revision is `kitchen-prep-viewer-00007-zld`.
 
 Then briefly show Cloud Scheduler job `kitchen-prep-daily`, enabled with schedule
 `0 7 * * *` and timezone `Europe/Oslo`.

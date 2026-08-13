@@ -32,13 +32,13 @@ Do not submit until every unchecked item is complete.
 ## Production verification
 
 - [x] Private worker revision `kitchen-prep-taskmaster-web-00006-jgp` serves 100%.
-- [x] Public viewer revision `kitchen-prep-viewer-00003-gts` serves 100%.
+- [x] Public viewer revision `kitchen-prep-viewer-00007-zld` serves 100%.
 - [x] Scheduler `kitchen-prep-daily` is enabled for 07:00 Europe/Oslo.
 - [x] Production run reports `forecast_source: gemini` and `gemini_ok`.
 - [x] Production run reports `briefing_source: gemini`.
 - [x] Forced replay preserves identical FEFO consumption and remaining stock.
 - [x] Public viewer mutation route and API docs return 404.
-- [x] Offline suite: 117 passed; live-key integration path separately verified in
+- [x] Offline suite: 121 passed; live-key integration path separately verified in
       production.
 
 ## Devpost fields
