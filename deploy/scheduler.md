@@ -7,13 +7,13 @@ date is computed server-side in Europe/Oslo, so no date needs to be passed.
 
 ```bash
 export PROJECT=your-project-id
-export REGION=us-central1
+export SCHEDULER_REGION=europe-west1
 export URL=https://<your-cloud-run-url>/runs/daily
 export INVOKER_SA=scheduler-invoker@$PROJECT.iam.gserviceaccount.com
 
 gcloud scheduler jobs create http kitchen-prep-daily \
   --project="$PROJECT" \
-  --location="$REGION" \
+  --location="$SCHEDULER_REGION" \
   --schedule="0 7 * * *" \
   --time-zone="Europe/Oslo" \
   --http-method=POST \

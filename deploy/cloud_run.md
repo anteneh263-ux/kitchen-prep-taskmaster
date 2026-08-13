@@ -38,9 +38,9 @@ Notes on the image:
 
 ```bash
 export PROJECT=your-project-id
-export REGION=us-central1
+export REGION=europe-north1
 
-gcloud run deploy kitchen-prep-taskmaster \
+gcloud run deploy kitchen-prep-taskmaster-web \
   --source . \
   --project="$PROJECT" \
   --region="$REGION" \

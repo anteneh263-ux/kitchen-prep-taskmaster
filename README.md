@@ -11,9 +11,10 @@ Gemini, Cloud Run, Cloud Scheduler and Firestore.
 
 | | |
 | --- | --- |
-| **Hosted URL** | https://kitchen-prep-viewer-358612956269.us-central1.run.app |
+| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00004-lqf` in `europe-north1` (private, authenticated) |
+| **Hosted judge URL** | TO BE ADDED — deploy the read-only viewer before submission |
 | **Demo Video** | TO BE ADDED |
-| **GitHub Repository** | TO BE ADDED |
+| **GitHub Repository** | https://github.com/anteneh263-ux/kitchen-prep-taskmaster |
 
 > **All data in this repository is synthetic and generic.** Restaurant names,
 > menu data, recipes, sales history, bookings and inventory values are invented
@@ -276,9 +277,9 @@ none of these.**
 
 | Variable | Effect |
 | --- | --- |
-| `GOOGLE_API_KEY` | When set, both Gemini steps call the real model and live weather is fetched. When unset, the system runs fully offline on deterministic paths. |
+| `GOOGLE_API_KEY` | When set, both Gemini steps call the real model. When unset, model steps use deterministic fallbacks. |
 | `GOOGLE_CLOUD_PROJECT` | Firestore project id |
-| `GOOGLE_CLOUD_LOCATION` | Cloud region (default in `.env.example`: `us-central1`) |
+| `GOOGLE_CLOUD_LOCATION` | Cloud region (default in `.env.example`: `europe-north1`) |
 | `KP_STORE` | Set to `firestore` to use Firestore; anything else uses the local JSON store |
 | `RESTAURANT_LAT` / `RESTAURANT_LON` | Coordinates for the weather lookup (default 59.91 / 10.75) |
 | `KP_OUT_DIR` | Overrides the local store root (default: `out/` in the repository root) |
@@ -337,18 +338,33 @@ curl http://localhost:8080/plans/latest
 
 ## Google Cloud Deployment
 
-Deployment is **intentionally not automated** in this repository — the reference
-commands live in [`deploy/cloud_run.md`](deploy/cloud_run.md) and
-[`deploy/scheduler.md`](deploy/scheduler.md), to be run manually.
+The production worker was built from this repository and deployed manually to
+Google Cloud Run in `europe-north1`. The reproducible commands live in
+[`deploy/cloud_run.md`](deploy/cloud_run.md) and
+[`deploy/scheduler.md`](deploy/scheduler.md).
+
+Verified production state on 2026-08-13:
+
+- private worker revision `kitchen-prep-taskmaster-web-00004-lqf`, serving 100%
+  of traffic;
+- Firestore persistence enabled with `KP_STORE=firestore`;
+- Secret Manager injects `GOOGLE_API_KEY` at runtime;
+- Cloud Scheduler job `kitchen-prep-daily` is enabled in `europe-west1` at
+  `0 7 * * *`, timezone `Europe/Oslo`;
+- an authenticated end-to-end run returned `forecast_source: gemini`,
+  `forecast_note: gemini_ok`, and `briefing_source: gemini`.
+
+The worker remains private. A separate public, read-only judge viewer is still a
+submission task; it must expose no run endpoint and receive no Gemini secret.
 
 **Cloud Run worker** — the private container entrypoint is
 `uvicorn kitchen_prep.server:app --host 0.0.0.0 --port ${PORT:-8080}`:
 
 ```bash
 export PROJECT=your-project-id
-export REGION=us-central1
+export REGION=europe-north1
 
-gcloud run deploy kitchen-prep-taskmaster \
+gcloud run deploy kitchen-prep-taskmaster-web \
   --source . \
   --project="$PROJECT" \
   --region="$REGION" \
@@ -368,13 +384,13 @@ computed server-side, so no date is passed:
 
 ```bash
 export PROJECT=your-project-id
-export REGION=us-central1
+export SCHEDULER_REGION=europe-west1
 export URL=https://<your-cloud-run-url>/runs/daily
 export INVOKER_SA=scheduler-invoker@$PROJECT.iam.gserviceaccount.com
 
 gcloud scheduler jobs create http kitchen-prep-daily \
   --project="$PROJECT" \
-  --location="$REGION" \
+  --location="$SCHEDULER_REGION" \
   --schedule="0 7 * * *" \
   --time-zone="Europe/Oslo" \
   --http-method=POST \
@@ -415,10 +431,10 @@ errors, bad requests and programming errors propagate and crash the run. A
 misconfigured API key produces a loud failure, not a silent month of fallback
 plans.
 
-**Idempotent by date.** `daily_plans` is written create-only and the orchestrator
-checks for an existing plan first. Scheduler retries, duplicate deliveries and
-manual re-invocations all return the same plan. `force: true` is available for
-deliberate re-runs.
+**Idempotent by date.** The orchestrator checks for an existing plan first.
+Scheduler retries, duplicate deliveries and ordinary manual re-invocations all
+return the same plan. An explicit `force: true` deliberately replaces the stored
+plan and is covered by a regression test.
 
 **Failures stay auditable.** The run log is appended in a `finally` block, so a
 crashed run leaves a complete step-by-step record of how far it got.
@@ -448,11 +464,10 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   delivery date, but demand occurring between today and delivery is not
   subtracted. This is a deliberate, documented simplification in
   `pipeline/replenishment.py`.
-- **The container image has not been built or deployed yet.** A `Dockerfile` and
-  `.dockerignore` are in place and the start command is covered by tests, but
-  Docker is not available in the development environment, so the image has not
-  been built locally. The first `gcloud run deploy --source .` is also the first
-  real build.
+- **The judge-facing viewer is not deployed yet.** The production worker is
+  deployed and verified, but it is intentionally private. Before submission, a
+  separate public read-only viewer must be deployed so judges can inspect plans
+  without receiving worker credentials or access to `/runs/daily`.
 - **Bookings cover a fixed synthetic window** (2026-08-11 → 2026-08-16). Dates
   past it no longer fail: covers are estimated deterministically from sales
   history (rounded same-weekday mean, strictly before the target date), and the
@@ -473,7 +488,30 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   not transmitted. Placing them is a human step by design.
 - **Firestore is untested in CI.** `FirestoreStore` requires cloud credentials
   and is excluded from coverage; the local JSON store is what the test suite
-  exercises.
+  exercises. The production Firestore path has been verified manually through
+  an authenticated end-to-end Cloud Run execution.
+
+## Disclosures and Third-Party Components
+
+This project was created during the contest submission period. The first Git
+commit is dated 2026-08-11; the Git history is retained as the development
+record. No pre-contest application code or private starter project was
+incorporated.
+
+AI coding assistants, including OpenAI Codex, were used for implementation,
+review, diagnostics and documentation. The entrant selected the problem and
+architecture, directed the work, reviewed the resulting code, ran the tests and
+deployments, and remains responsible for and owner of the submission. Runtime AI
+use is separate and explicit: Gemini 3.5 Flash is called only for the two
+schema-bounded judgment steps documented above.
+
+The application depends on the open-source packages declared in
+`requirements.txt` and `pyproject.toml`, including Google ADK, Google Gen AI SDK,
+Google Cloud Firestore, FastAPI, Uvicorn and Requests. Their respective upstream
+licenses apply; none of their code is claimed as original project work. Weather
+data is obtained from the Open-Meteo API under its published terms. All menu,
+booking, sales and inventory data included with this repository is synthetic.
+No third-party images, fonts, trademarks or private datasets are bundled.
 
 ## Findings and Learnings
 
@@ -557,9 +595,11 @@ system produces identical output on any machine, offline.
 
 ## Demo
 
-- **Hosted URL:** TO BE ADDED
+- **Cloud Run worker:** deployed privately; revision
+  `kitchen-prep-taskmaster-web-00004-lqf`
+- **Judge-facing viewer:** TO BE ADDED
 - **Demo Video:** TO BE ADDED
-- **GitHub Repository:** TO BE ADDED
+- **GitHub Repository:** https://github.com/anteneh263-ux/kitchen-prep-taskmaster
 
 **Reference demo date: `2026-08-14`** — 80 expected covers. The offline run
 produces, from the committed seed inventory:
