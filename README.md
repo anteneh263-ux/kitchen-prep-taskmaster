@@ -611,6 +611,9 @@ system produces identical output on any machine, offline.
   https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 - **Demo Video:** TO BE ADDED
 - **GitHub Repository:** https://github.com/anteneh263-ux/kitchen-prep-taskmaster
+- **Demo script:** [`docs/demo_script.md`](docs/demo_script.md)
+- **Judge testing instructions:**
+  [`docs/judge_testing_instructions.md`](docs/judge_testing_instructions.md)
 
 **Reference demo date: `2026-08-14`** — 80 expected covers. The offline run
 produces, from the committed seed inventory:
