@@ -1,5 +1,9 @@
 # Demo Recording Runbook
 
+Use the timed scene plan and final English narration in
+[`video_storyboard.md`](video_storyboard.md). This runbook covers the operational
+setup for that recording.
+
 Prepare these windows before recording. Do not improvise navigation during the
 four-minute take.
 

@@ -1,5 +1,9 @@
 # Four-Minute Demo Script
 
+For the final shot-by-shot production plan, captions and visual direction, use
+[`video_storyboard.md`](video_storyboard.md). This file remains the compact
+narration reference.
+
 Target duration: **3:35–3:50**. Record in English as one continuous take. Keep
 the browser zoom large enough for the Cloud Run revision, terminal response and
 viewer status to remain readable in the final video.
