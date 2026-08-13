@@ -1,0 +1,99 @@
+1
+00:00:00,000 --> 00:00:07,000
+Every morning, a restaurant must decide what to prep,
+what will run short, and what to order before service.
+
+2
+00:00:07,000 --> 00:00:14,000
+Kitchen Prep Taskmaster completes that whole job automatically,
+and shows its work.
+
+3
+00:00:14,000 --> 00:00:23,000
+At seven, Cloud Scheduler securely triggers a private Cloud Run worker.
+No chat and no button click.
+
+4
+00:00:23,000 --> 00:00:32,000
+The agent combines bookings, weather, sales history,
+recipes, and batch inventory.
+
+5
+00:00:32,000 --> 00:00:41,000
+Gemini proposes demand. Python validates, applies FEFO,
+calculates shortfalls and orders, and publishes to Firestore.
+
+6
+00:00:41,000 --> 00:00:51,000
+Gemini has exactly two bounded jobs:
+propose dish demand and write the briefing.
+
+7
+00:00:51,000 --> 00:01:00,000
+It never owns an ingredient, inventory, shortfall,
+order, or delivery quantity.
+
+8
+00:01:00,000 --> 00:01:10,000
+Every proposal is validated. If it fails, a deterministic baseline
+takes over and the dashboard visibly marks the degraded path.
+
+9
+00:01:10,000 --> 00:01:19,000
+The mutation surface is private. The public viewer has read-only
+Firestore access, no Gemini secret, and no run endpoint.
+
+10
+00:01:19,000 --> 00:01:29,000
+Both revisions serve one hundred percent of traffic.
+The daily schedule and public security boundary are verified.
+
+11
+00:01:29,000 --> 00:01:38,000
+Now the real production agent runs against the private worker.
+Authentication is obtained internally and never printed.
+
+12
+00:01:38,000 --> 00:01:50,000
+This is one uninterrupted terminal recording.
+The command is running against the deployed worker.
+
+13
+00:01:50,000 --> 00:02:02,000
+The result shows a Gemini forecast accepted as gemini_ok,
+a Gemini briefing, and replay-safe dated inventory.
+
+14
+00:02:02,000 --> 00:02:14,000
+Operational quantities still come from deterministic,
+post-consumption ordering logic.
+
+15
+00:02:14,000 --> 00:02:25,000
+The refreshed dashboard traces the run from guest input,
+through dish predictions, validation, FEFO, and publication.
+
+16
+00:02:25,000 --> 00:02:36,000
+The kitchen receives prioritized prep, today's shortage separately
+from future orders, and supplier delivery dates.
+
+17
+00:02:36,000 --> 00:02:46,000
+The agent recommends how to resolve the shortage,
+but clearly requires human approval.
+
+18
+00:02:46,000 --> 00:02:55,000
+Gemini provides judgment.
+Deterministic code owns the numbers.
+
+19
+00:02:55,000 --> 00:03:03,000
+The repository includes reproducible deployment instructions
+and one hundred twenty-four passing tests.
+
+20
+00:03:03,000 --> 00:03:09,000
+Kitchen Prep Taskmaster runs the daily loop and shows its work.
+Open the live read-only plan and inspect the evidence.

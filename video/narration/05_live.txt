@@ -1,0 +1,1 @@
+Now the real production agent runs against the private worker. Authentication is obtained internally and never printed. The uninterrupted result shows a Gemini forecast accepted as Gemini O K, a Gemini briefing, replay-safe dated inventory, and deterministic post-consumption ordering.

@@ -1,0 +1,1 @@
+The mutation surface is private. The public judge viewer runs with read-only Firestore access, no Gemini secret, and no run endpoint. These verified checks show both active revisions at one hundred percent traffic, the enabled daily schedule, and the public security boundary.

@@ -1,0 +1,1 @@
+Every morning, a restaurant must decide what to prep, what will run short, and what to order before service begins. Kitchen Prep Taskmaster completes that whole job automatically, and shows its work.

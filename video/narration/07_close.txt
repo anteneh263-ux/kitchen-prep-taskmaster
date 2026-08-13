@@ -1,0 +1,1 @@
+The repository includes reproducible deployment instructions and one hundred twenty-four passing tests covering validation, fallback, inventory, replay safety, and route security. Kitchen Prep Taskmaster is the autonomous kitchen agent that runs the daily loop and shows its work. Open the live read-only plan and inspect the evidence.
