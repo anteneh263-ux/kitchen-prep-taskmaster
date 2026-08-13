@@ -21,7 +21,7 @@ from .. import config
 class BaseStore:
     def plan_exists(self, date: str) -> bool: ...
     def get_plan(self, date: str) -> dict | None: ...
-    def save_plan(self, date: str, plan: dict) -> dict: ...
+    def save_plan(self, date: str, plan: dict, *, overwrite: bool = False) -> dict: ...
     def get_latest_plan(self) -> dict | None: ...
     def append_run_log(self, run_id: str, entry: dict) -> None: ...
 
@@ -47,10 +47,10 @@ class LocalJsonStore(BaseStore):
         with open(p, encoding="utf-8") as fh:
             return json.load(fh)
 
-    def save_plan(self, date: str, plan: dict) -> dict:
+    def save_plan(self, date: str, plan: dict, *, overwrite: bool = False) -> dict:
         # Idempotent: never overwrite an existing plan for the same date.
         existing = self.get_plan(date)
-        if existing is not None:
+        if existing is not None and not overwrite:
             return existing
         with open(self._plan_path(date), "w", encoding="utf-8") as fh:
             json.dump(plan, fh, indent=2, ensure_ascii=False)
@@ -86,13 +86,16 @@ class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credential
         snap = self.db.collection("daily_plans").document(date).get()
         return snap.to_dict() if snap.exists else None
 
-    def save_plan(self, date: str, plan: dict) -> dict:
+    def save_plan(self, date: str, plan: dict, *, overwrite: bool = False) -> dict:
         ref = self.db.collection("daily_plans").document(date)
         # Idempotent create; if it already exists, return the stored plan.
         existing = ref.get()
-        if existing.exists:
+        if existing.exists and not overwrite:
             return existing.to_dict()
-        ref.create(plan)  # create() fails if doc exists -> extra idempotency guard
+        if overwrite:
+            ref.set(plan)
+        else:
+            ref.create(plan)  # create() fails if doc exists -> extra idempotency guard
         return plan
 
     def get_latest_plan(self) -> dict | None:

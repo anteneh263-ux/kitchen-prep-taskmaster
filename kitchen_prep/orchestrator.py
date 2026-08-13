@@ -131,7 +131,7 @@ def run_daily_prep(
         plan["briefing_markdown"] = md_render.render(plan)
         log("briefing", source=briefing_source)
 
-        saved = store.save_plan(date, plan)
+        saved = store.save_plan(date, plan, overwrite=force)
         log("saved")
         return saved
     except Exception as exc:  # noqa: BLE001 - logged then re-raised (error policy)
