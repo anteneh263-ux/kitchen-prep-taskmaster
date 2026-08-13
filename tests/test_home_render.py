@@ -65,3 +65,22 @@ def test_render_home_handles_no_plan():
     html = render_home(None)
     assert html.lower().startswith("<!doctype html")
     assert "Ingen plan" in html
+
+
+def test_render_home_supports_english():
+    html = render_home(_plan(), language="en")
+    assert '<html lang="en">' in html
+    assert "Kitchen briefing" in html
+    assert "80</strong> expected guests" in html
+    assert "Forecast source" in html
+    assert "DEGRADED (fallback used)" in html
+    assert "Today’s shortfalls" in html
+    assert "Replenishment orders" in html
+    assert "Waste (expired batches)" in html
+    assert 'href="?lang=no"' in html
+
+
+def test_render_home_english_empty_state():
+    html = render_home(None, language="en")
+    assert '<html lang="en">' in html
+    assert "No plan has been published yet." in html

@@ -476,10 +476,11 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   parties, closures, events — so it is a safe default, not a substitute for a
   booking feed. A run whose date also predates all sales history still fails
   loudly with `CoversUnavailable` rather than inventing a number.
-- **Kitchen-facing output is in Norwegian.** The briefing text, the rendered
-  Markdown and the mobile page are written for a Norwegian kitchen; this README
-  and the architecture document are in English. The output language is not yet
-  configurable.
+- **The HTML viewer supports English and Norwegian.** The public judge viewer
+  defaults to English and provides a visible Norwegian switch; the private
+  kitchen worker defaults to Norwegian and provides the inverse switch. Stored
+  briefing prose remains in the language returned by the validated model step,
+  while every authoritative label and quantity in the viewer is localized.
 - **Weather is a single daily aggregate** — max temperature, precipitation sum
   and a weather code — not an hourly profile, and not split by service period.
 - **The forecast baseline is a 4-week same-weekday mean.** It is intentionally

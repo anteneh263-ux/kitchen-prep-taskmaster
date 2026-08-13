@@ -20,6 +20,15 @@ def test_public_home_renders_without_a_plan(empty_client):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert response.text.lower().startswith("<!doctype html")
+    assert '<html lang="en">' in response.text
+    assert "No plan has been published yet." in response.text
+
+
+def test_public_home_can_switch_to_norwegian(empty_client):
+    response = empty_client.get("/?lang=no")
+    assert response.status_code == 200
+    assert '<html lang="no">' in response.text
+    assert "Ingen plan er publisert ennå." in response.text
 
 
 def test_public_latest_returns_empty_state(empty_client):

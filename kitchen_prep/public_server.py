@@ -23,10 +23,10 @@ app = FastAPI(
 
 
 @app.get("/", response_class=HTMLResponse)
-def home() -> HTMLResponse:
+def home(lang: str = "en") -> HTMLResponse:
     """Mobile-friendly view of the latest published plan."""
     plan = store_da.get_store().get_latest_plan()
-    return HTMLResponse(content=render_home(plan))
+    return HTMLResponse(content=render_home(plan, language=lang))
 
 
 @app.get("/plans/latest")
