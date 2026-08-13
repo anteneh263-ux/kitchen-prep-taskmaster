@@ -12,7 +12,7 @@ Gemini, Cloud Run, Cloud Scheduler and Firestore.
 | | |
 | --- | --- |
 | **Cloud Run worker** | `kitchen-prep-taskmaster-web-00004-lqf` in `europe-north1` (private, authenticated) |
-| **Hosted judge URL** | TO BE ADDED — deploy the read-only viewer before submission |
+| **Hosted judge URL** | https://kitchen-prep-viewer-373405758807.europe-north1.run.app |
 | **Demo Video** | TO BE ADDED |
 | **GitHub Repository** | https://github.com/anteneh263-ux/kitchen-prep-taskmaster |
 
@@ -354,8 +354,10 @@ Verified production state on 2026-08-13:
 - an authenticated end-to-end run returned `forecast_source: gemini`,
   `forecast_note: gemini_ok`, and `briefing_source: gemini`.
 
-The worker remains private. A separate public, read-only judge viewer is still a
-submission task; it must expose no run endpoint and receive no Gemini secret.
+The worker remains private. A separate public, read-only judge viewer runs as
+`kitchen-prep-viewer-00001-pk4` with only Firestore viewer permission. It
+receives no Gemini secret, and `/runs/daily`, `/docs`, `/redoc` and
+`/openapi.json` all return 404.
 
 **Cloud Run worker** — the private container entrypoint is
 `uvicorn kitchen_prep.server:app --host 0.0.0.0 --port ${PORT:-8080}`:
@@ -464,10 +466,10 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   delivery date, but demand occurring between today and delivery is not
   subtracted. This is a deliberate, documented simplification in
   `pipeline/replenishment.py`.
-- **The judge-facing viewer is not deployed yet.** The production worker is
-  deployed and verified, but it is intentionally private. Before submission, a
-  separate public read-only viewer must be deployed so judges can inspect plans
-  without receiving worker credentials or access to `/runs/daily`.
+- **The judge-facing viewer is deliberately read-only.** Judges can inspect the
+  latest plan without credentials, but cannot trigger runs or access the worker.
+  This keeps the demo testable without exposing the Gemini secret or a mutation
+  endpoint.
 - **Bookings cover a fixed synthetic window** (2026-08-11 → 2026-08-16). Dates
   past it no longer fail: covers are estimated deterministically from sales
   history (rounded same-weekday mean, strictly before the target date), and the
@@ -598,7 +600,8 @@ system produces identical output on any machine, offline.
 
 - **Cloud Run worker:** deployed privately; revision
   `kitchen-prep-taskmaster-web-00004-lqf`
-- **Judge-facing viewer:** TO BE ADDED
+- **Judge-facing viewer:**
+  https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 - **Demo Video:** TO BE ADDED
 - **GitHub Repository:** https://github.com/anteneh263-ux/kitchen-prep-taskmaster
 
