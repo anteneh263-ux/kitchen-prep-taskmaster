@@ -106,7 +106,6 @@ h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter
 .flow-value { display: block; font-size: .82rem; font-weight: 800; overflow-wrap: anywhere; }
 .flow-detail { display: block; margin-top: .18rem; color: var(--muted); font-size: .7rem; overflow-wrap: anywhere; }
 .flow-step--fallback .flow-number { background: var(--warn); }
-
 .grid { display: grid; grid-template-columns: 1.35fr .9fr; gap: 1rem; align-items: start; }
 .stack { display: grid; gap: 1rem; }
 .panel { overflow: hidden; box-shadow: var(--shadow-sm); }
