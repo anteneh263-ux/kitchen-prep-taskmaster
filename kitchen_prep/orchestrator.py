@@ -91,7 +91,8 @@ def run_daily_prep(
         required = ingredients_pipe.explode_to_ingredients(forecast)
         log("ingredient_requirements", items=len(required))
 
-        batches = store_da.load_seed_batches()
+        batches = store.get_or_create_inventory_input(date, store_da.load_seed_batches())
+        log("inventory_input", batches=len(batches))
         consumption = prep_pipe.consume_today(required, batches, date)
         log(
             "consume_today",
@@ -107,12 +108,18 @@ def run_daily_prep(
             item: round(sum(b["qty"] for b in batch_list), 3)
             for item, batch_list in consumption["remaining_by_item"].items()
         }
+        remaining_batches = [
+            dict(batch)
+            for item_batches in consumption["remaining_by_item"].values()
+            for batch in item_batches
+        ]
 
         plan: dict[str, Any] = {
             "date": date,
             "expected_covers": covers,
             "covers_source": covers_source,
             "planning_basis": replen_pipe.PLANNING_BASIS,
+            "inventory_basis": "date_input_output_snapshot",
             "forecast": forecast.to_dict(),
             "forecast_note": note,
             "ingredient_requirements": required,
@@ -132,6 +139,7 @@ def run_daily_prep(
         log("briefing", source=briefing_source)
 
         saved = store.save_plan(date, plan, overwrite=force)
+        store.save_inventory_output(date, remaining_batches)
         log("saved")
         return saved
     except Exception as exc:  # noqa: BLE001 - logged then re-raised (error policy)

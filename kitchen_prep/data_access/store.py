@@ -7,7 +7,7 @@ environment needs no google-cloud-firestore dependency or credentials.
 Collections / concepts:
   - daily_plans/{date}   -> the authoritative plan incl. published markdown field
   - run_logs/{run_id}    -> step-by-step log, written even on failure
-  - inventory            -> batches (seeded from data/inventory_batches.json)
+  - inventory_snapshots/{date} -> replay-safe input/output batches for each day
 """
 from __future__ import annotations
 
@@ -25,6 +25,8 @@ class BaseStore:
     def get_latest_plan(self) -> dict | None: ...
     def list_plans(self, limit: int = 14) -> list[dict]: ...
     def append_run_log(self, run_id: str, entry: dict) -> None: ...
+    def get_or_create_inventory_input(self, date: str, seed_batches: list[dict]) -> list[dict]: ...
+    def save_inventory_output(self, date: str, batches: list[dict]) -> None: ...
 
 
 class LocalJsonStore(BaseStore):
@@ -32,8 +34,10 @@ class LocalJsonStore(BaseStore):
         self.base = Path(base_dir) if base_dir else config.OUT_DIR
         self.plans_dir = self.base / "daily_plans"
         self.logs_dir = self.base / "run_logs"
+        self.inventory_dir = self.base / "inventory_snapshots"
         self.plans_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.inventory_dir.mkdir(parents=True, exist_ok=True)
 
     def _plan_path(self, date: str) -> Path:
         return self.plans_dir / f"{date}.json"
@@ -79,6 +83,37 @@ class LocalJsonStore(BaseStore):
     def append_run_log(self, run_id: str, entry: dict) -> None:
         with open(self.logs_dir / f"{run_id}.jsonl", "a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def _inventory_path(self, date: str) -> Path:
+        return self.inventory_dir / f"{date}.json"
+
+    def get_or_create_inventory_input(self, date: str, seed_batches: list[dict]) -> list[dict]:
+        """Freeze the input for a date; force-runs replay from the same snapshot."""
+        path = self._inventory_path(date)
+        if path.exists():
+            with open(path, encoding="utf-8") as fh:
+                return json.load(fh)["input_batches"]
+
+        previous_output: list[dict] | None = None
+        previous = [p for p in sorted(self.inventory_dir.glob("*.json")) if p.stem < date]
+        if previous:
+            with open(previous[-1], encoding="utf-8") as fh:
+                previous_output = json.load(fh).get("output_batches")
+        source = seed_batches if previous_output is None else previous_output
+        input_batches = [dict(batch) for batch in source]
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"date": date, "input_batches": input_batches}, fh, indent=2)
+        return input_batches
+
+    def save_inventory_output(self, date: str, batches: list[dict]) -> None:
+        path = self._inventory_path(date)
+        existing: dict = {}
+        if path.exists():
+            with open(path, encoding="utf-8") as fh:
+                existing = json.load(fh)
+        existing.update({"date": date, "output_batches": [dict(batch) for batch in batches]})
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(existing, fh, indent=2)
 
 
 class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credentials
@@ -132,6 +167,38 @@ class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credential
 
     def append_run_log(self, run_id: str, entry: dict) -> None:
         self.db.collection("run_logs").document(run_id).collection("steps").add(entry)
+
+    def get_or_create_inventory_input(self, date: str, seed_batches: list[dict]) -> list[dict]:
+        from google.cloud import firestore  # lazy import
+
+        ref = self.db.collection("inventory_snapshots").document(date)
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def resolve(txn):
+            current = ref.get(transaction=txn)
+            if current.exists:
+                return current.to_dict()["input_batches"]
+            previous_query = (
+                self.db.collection("inventory_snapshots")
+                .where("date", "<", date)
+                .order_by("date", direction=firestore.Query.DESCENDING)
+                .limit(1)
+            )
+            previous = list(previous_query.stream(transaction=txn))
+            previous_output = previous[0].to_dict().get("output_batches") if previous else None
+            source = seed_batches if previous_output is None else previous_output
+            input_batches = [dict(batch) for batch in source]
+            txn.create(ref, {"date": date, "input_batches": input_batches})
+            return input_batches
+
+        return resolve(transaction)
+
+    def save_inventory_output(self, date: str, batches: list[dict]) -> None:
+        self.db.collection("inventory_snapshots").document(date).set(
+            {"date": date, "output_batches": [dict(batch) for batch in batches]},
+            merge=True,
+        )
 
 
 def get_store() -> BaseStore:

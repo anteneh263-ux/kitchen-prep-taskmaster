@@ -463,11 +463,12 @@ rather than take it on trust.
 
 Stated plainly, because a hackathon demo that hides its edges is not useful.
 
-- **Inventory is not yet persisted between runs.** The `inventory` collection is
-  part of the declared Firestore data model, but batches are currently always
-  loaded from `kitchen_prep/data/inventory_batches.json`. Each run therefore
-  starts from the same seed rather than from yesterday's post-consumption state.
-  Closing that loop is the single highest-value next step.
+- **Inventory is persisted as replay-safe daily snapshots.** The first run starts
+  from the synthetic seed. Each later date freezes the previous date's output as
+  its input; a forced rerun of the same date reuses its original input snapshot,
+  so it cannot consume stock twice. Calculated purchase orders are deliberately
+  not added to inventory automatically: an explicit receiving event is still a
+  future integration.
 - **Intermediate demand during multi-day lead times is not modelled.** For an
   ingredient with a 3-day lead time, the order covers the gap to par at the
   delivery date, but demand occurring between today and delivery is not
@@ -496,10 +497,10 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   simple and explainable; it does not model holidays, local events or trend.
 - **No supplier integration.** Replenishment orders are computed and published,
   not transmitted. Placing them is a human step by design.
-- **Firestore is untested in CI.** `FirestoreStore` requires cloud credentials
-  and is excluded from coverage; the local JSON store is what the test suite
-  exercises. The production Firestore path has been verified manually through
-  an authenticated end-to-end Cloud Run execution.
+- **Firestore is not emulated in CI.** `FirestoreStore` requires cloud
+  credentials and is excluded from offline coverage; the same snapshot contract
+  is exercised through the local JSON backend. The production Firestore path is
+  verified manually through authenticated end-to-end Cloud Run executions.
 
 ## Disclosures and Third-Party Components
 

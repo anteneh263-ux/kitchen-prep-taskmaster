@@ -87,7 +87,7 @@ flowchart TD
     subgraph STORE["Firestore — KP_STORE=firestore; local JSON store otherwise"]
         DP["daily_plans, one document per date<br/>plan plus briefing_markdown<br/>create-only, so idempotent"]
         RL["run_logs, one document per run_id<br/>step log written in finally, even on failure"]
-        INV["inventory — declared collection<br/>batches currently seeded from<br/>inventory_batches.json, not yet<br/>read back from Firestore"]
+        INV["inventory_snapshots/{date}<br/>frozen input + post-consumption output<br/>force reruns replay the same input"]
     end
 
     SCHED -- "HTTPS POST with OIDC token<br/>audience = service URL" --> API
@@ -150,15 +150,14 @@ transport and storage.
 
 ### Storage status, stated precisely
 
-`daily_plans` and `run_logs` are written by code today, through either backend
-(`LocalJsonStore` for local development, `FirestoreStore` when
-`KP_STORE=firestore`). The `inventory` collection is part of the declared
-Firestore data model, but in the current implementation batches are always
-loaded from `kitchen_prep/data/inventory_batches.json` via
-`store.load_seed_batches()`; nothing reads or writes them back to Firestore yet.
-Closing that loop — persisting post-consumption batch state so a run continues
-from the previous day's inventory — is the next step, and it is listed under
-Known Limitations in the README.
+`daily_plans`, `run_logs` and `inventory_snapshots` are written through either
+backend (`LocalJsonStore` for local development, `FirestoreStore` when
+`KP_STORE=firestore`). The first inventory date starts from the synthetic seed.
+For each later date the store freezes the latest earlier output as that date's
+input. Forced reruns reuse the frozen input rather than the prior output, making
+replay safe and preventing double consumption. Purchase orders remain proposed
+actions; stock changes only through consumption until an explicit receiving
+integration is added.
 
 ## Request flow, end to end
 
