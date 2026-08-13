@@ -189,7 +189,7 @@ stock.
   `forecast_note: gemini_ok`, `briefing_source: gemini`.
 - Verified forced replay: identical FEFO consumption and remaining stock, with
   `inventory_basis: date_input_output_snapshot`.
-- Offline test suite: 121 passed, 1 integration test skipped without a live key.
+- Offline test suite: 122 passed, 1 integration test skipped without a live key.
 
 ## Links
 

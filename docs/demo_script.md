@@ -54,14 +54,12 @@ Then briefly show Cloud Scheduler job `kitchen-prep-daily`, enabled with schedul
 
 ## 1:35–2:30 — Unedited live execution
 
-In a prepared terminal, run this without exposing the identity token:
+In a prepared terminal, run the repository's judge-safe demo command. It obtains
+the identity token internally and prints only the evidence fields needed for the
+video; it never prints the token or the full plan payload:
 
 ```bash
-curl -sS -X POST \
-  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  -H "Content-Type: application/json" \
-  -d '{"force":true}' \
-  https://kitchen-prep-taskmaster-web-373405758807.europe-north1.run.app/runs/daily
+python scripts/run_production_demo.py
 ```
 
 Read the important response fields aloud:
@@ -76,6 +74,7 @@ Refresh the public viewer immediately after the command finishes.
 
 Point to these live results in the viewer:
 
+- the five-step **Autonomous run** evidence path;
 - expected guests;
 - forecast and briefing sources;
 - `OPERATIONAL` or clearly disclosed degraded status;
@@ -84,6 +83,7 @@ Point to these live results in the viewer:
 - today's shortfalls;
 - replenishment orders and delivery dates;
 - expired-batch waste.
+- the **Agent briefing** recommendation and human-approval boundary.
 
 > This is not model-written prose pretending to take action. The workflow has
 > transformed bookings, weather, sales history, recipes and inventory batches
@@ -97,7 +97,7 @@ Point to these live results in the viewer:
 Show the GitHub repository test section or a terminal with the test result.
 
 > The repository contains reproducible local and Cloud Run setup instructions,
-> a complete architecture document, synthetic data and 117 passing tests. It
+> a complete architecture document, synthetic data and 122 passing tests. It
 > tests forecast contracts, fallback behavior, FEFO, idempotency, forced plan
 > replacement, API security and the English judge interface. The worker stays
 > private, while the read-only viewer remains available to judges.

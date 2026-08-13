@@ -39,25 +39,25 @@ gcloud config set project kitchen-prep-taskmaster-263
 During the unedited live execution, run:
 
 ```bash
-curl -sS -X POST \
-  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-  -H "Content-Type: application/json" \
-  -d '{"force":true}' \
-  https://kitchen-prep-taskmaster-web-373405758807.europe-north1.run.app/runs/daily
+python scripts/run_production_demo.py
 ```
 
-The identity token is substituted by the shell and is not printed. The response
-should show `forecast_source: gemini` and `forecast_note: gemini_ok`.
+The script obtains the identity token internally and never prints it. Its compact
+evidence output should show `forecast_source: gemini`, `forecast_note: gemini_ok`,
+`briefing_source: gemini`, `date_input_output_snapshot` and
+`today_consumption_plus_par`.
 
 Refresh the public dashboard and point out:
 
 - `OPERATIONAL`;
+- the five-step **Autonomous run** panel;
 - Gemini forecast and briefing sources;
 - `date_input_output_snapshot`;
 - prioritized prep and readable dish names;
 - today's shortfalls;
 - replenishment orders;
 - forecast drivers and reasoning;
+- the **Agent briefing** human-approval boundary;
 - plan history.
 
 ## Test evidence
@@ -68,7 +68,7 @@ Prepare this output before recording, or run it if timing permits:
 pytest -q
 ```
 
-Expected offline result: `121 passed, 1 skipped`. The skipped test is the
+Expected offline result: `122 passed, 1 skipped`. The skipped test is the
 credentialed integration test; the live production execution is the evidence for
 that path.
 
