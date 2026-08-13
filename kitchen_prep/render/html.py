@@ -95,6 +95,18 @@ h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter
   border-radius: 3px; background: var(--danger); }
 .card--alert .value { color: var(--danger); }
 
+.run-flow { margin: 1.1rem 0; }
+.flow-list { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; }
+.flow-step { position: relative; min-width: 0; padding: 1rem .9rem; border-right: 1px solid var(--line); }
+.flow-step:last-child { border-right: 0; }
+.flow-top { display: flex; align-items: center; gap: .45rem; margin-bottom: .4rem; }
+.flow-number { display: grid; place-items: center; flex: 0 0 auto; width: 1.45rem; height: 1.45rem;
+  border-radius: 50%; color: white; background: var(--brand); font-size: .68rem; font-weight: 850; }
+.flow-label { color: var(--muted); font-size: .65rem; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; }
+.flow-value { display: block; font-size: .82rem; font-weight: 800; overflow-wrap: anywhere; }
+.flow-detail { display: block; margin-top: .18rem; color: var(--muted); font-size: .7rem; overflow-wrap: anywhere; }
+.flow-step--fallback .flow-number { background: var(--warn); }
+
 .grid { display: grid; grid-template-columns: 1.35fr .9fr; gap: 1rem; align-items: start; }
 .stack { display: grid; gap: 1rem; }
 .panel { overflow: hidden; box-shadow: var(--shadow-sm); }
@@ -144,7 +156,9 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
 .warning-list { margin: 0; padding: .85rem 1.15rem .95rem 2.2rem; color: var(--warn); font-size: .78rem; }
 .warning-list li + li { margin-top: .35rem; }
 .footer { color: var(--muted); text-align: center; font-size: .72rem; margin-top: 1.25rem; }
-@media (max-width: 780px) { .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; } }
+@media (max-width: 780px) { .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; }
+  .flow-list { grid-template-columns: 1fr; } .flow-step { border-right: 0; border-bottom: 1px solid var(--line); }
+  .flow-step:last-child { border-bottom: 0; } }
 @media (max-width: 430px) { .shell { width: min(100% - 1rem, 1080px); } .hero { border-radius: 16px; }
   .cards { gap: .55rem; } .card { padding: .85rem .9rem; } .card .value { font-size: 1.5rem; }
   .row { padding: .74rem .9rem; } }
@@ -257,6 +271,26 @@ def render_home(
 
     status_class = "status degraded" if degraded else "status"
     forecast_note = plan.get("forecast_note", "")
+    forecast_source = str(forecast.get("forecast_source", "unknown"))
+    briefing_source = str(plan.get("briefing_source", "unknown"))
+    validation_fallback = forecast_source == "deterministic_fallback"
+    validation_value = ("Fallback activated" if en else "Fallback aktivert") if validation_fallback else ("Proposal accepted" if en else "Forslag godkjent")
+    fefo_count = len(plan.get("fefo_consumption", []))
+    covers_source = str(plan.get("covers_source", "expected_covers"))
+    planning_basis = str(plan.get("planning_basis", "today_consumption_plus_par"))
+    flow_steps = [
+        (("Inputs" if en else "Datagrunnlag"), f'{plan["expected_covers"]} {"guests" if en else "gjester"}', covers_source, False),
+        (("AI forecast" if en else "AI-prognose"), forecast_source, f'{len(forecast.get("dishes", []))} {"dish predictions" if en else "rettsprognoser"}', validation_fallback),
+        (("Validation" if en else "Validering"), validation_value, str(forecast_note or "—"), validation_fallback),
+        (("Deterministic math" if en else "Deterministisk beregning"), f'FEFO · {fefo_count} {"batch uses" if en else "batchuttak"}', planning_basis, False),
+        (("Published plan" if en else "Publisert plan"), briefing_source, str(plan.get("generated_at", "—")), briefing_source == "deterministic_fallback"),
+    ]
+    flow_items = "".join(
+        f'<li class="flow-step{" flow-step--fallback" if fallback else ""}"><div class="flow-top"><span class="flow-number">{number}</span>'
+        f'<span class="flow-label">{escape(label)}</span></div><strong class="flow-value">{escape(value)}</strong>'
+        f'<span class="flow-detail">{escape(detail)}</span></li>'
+        for number, (label, value, detail, fallback) in enumerate(flow_steps, 1)
+    )
     history_items = []
     for historic in available_plans or []:
         historic_date = str(historic.get("date", ""))
@@ -284,6 +318,11 @@ def render_home(
 <div class="{short_card_class}"><span class="label">{"Shortfalls" if en else "Mangler"}</span><span class="value">{len(shortfalls)}</span></div>
 <div class="card"><span class="label">{"Orders" if en else "Bestillinger"}</span><span class="value">{len(orders)}</span></div>
 </section>
+
+<section class="panel run-flow" aria-labelledby="run-flow-title"><header class="panel-head">
+<h2 id="run-flow-title">{"Autonomous run" if en else "Autonom kjøring"}</h2>
+<p>{"One traceable path from operational inputs to a published plan" if en else "Ett sporbart løp fra driftsdata til publisert plan"}</p>
+</header><ol class="flow-list">{flow_items}</ol></section>
 
 <div class="grid"><div class="stack">
 {f'<section class="panel"><header class="panel-head"><h2>{"Plan history" if en else "Planhistorikk"}</h2><p>{"Read-only Firestore plans" if en else "Skrivebeskyttede Firestore-planer"}</p></header><div class="driver-list">{history_block}</div></section>' if history_block else ''}

@@ -9,6 +9,9 @@ def _plan():
         "forecast": {"forecast_source": "deterministic_fallback"},
         "briefing_source": "deterministic_fallback",
         "inventory_basis": "date_input_output_snapshot",
+        "covers_source": "bookings_csv",
+        "planning_basis": "today_consumption_plus_par",
+        "forecast_note": "fallback:model_unavailable:test",
         "generated_at": "2026-08-11T07:00:00+02:00",
         "prep_tasks": [
             {"task_id": "prep_bbq_ribs", "dish_id": "bbq_ribs", "qty": 19, "prep_minutes": 76.0, "priority": 1},
@@ -16,6 +19,9 @@ def _plan():
         ],
         "prep_shortfalls": [
             {"item_id": "beef_patty", "required": 71.0, "available": 40, "shortfall": 31.0}
+        ],
+        "fefo_consumption": [
+            {"batch_id": "b01", "item_id": "beef_patty", "qty_consumed": 40}
         ],
         "replenishment_orders": [
             {"item_id": "burger_bun", "order_qty": 60, "unit": "stk", "supplier": "BakeryCo",
@@ -131,6 +137,30 @@ def test_render_home_exposes_agent_briefing_and_human_approval_boundary():
     assert "Source 31 patties before service." in html
     assert "Human approval required" in html
     assert "Discard expired batch b06." in html
+
+
+def test_render_home_explains_the_autonomous_run_with_plan_evidence():
+    html = render_home(_plan(), language="en")
+    assert "Autonomous run" in html
+    assert "One traceable path from operational inputs to a published plan" in html
+    assert "bookings_csv" in html
+    assert "deterministic_fallback" in html
+    assert "Fallback activated" in html
+    assert "fallback:model_unavailable:test" in html
+    assert "FEFO · 1 batch uses" in html
+    assert "today_consumption_plus_par" in html
+
+
+def test_render_home_marks_successful_forecast_validation():
+    plan = _plan()
+    plan["forecast"]["forecast_source"] = "gemini"
+    plan["forecast"]["dishes"] = [{"dish_id": "classic_burger", "expected_qty": 42}]
+    plan["forecast_note"] = "gemini_ok"
+    plan["briefing_source"] = "gemini"
+    html = render_home(plan, language="en")
+    assert "Proposal accepted" in html
+    assert "gemini_ok" in html
+    assert "1 dish predictions" in html
 
 
 def test_render_home_escapes_agent_briefing_content():
