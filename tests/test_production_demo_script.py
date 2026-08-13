@@ -35,3 +35,10 @@ def test_evidence_contains_only_judge_safe_summary_fields():
     assert evidence["inventory_basis"] == "date_input_output_snapshot"
     assert "unexpected_private_payload" not in evidence
     assert "remaining_stock" not in evidence
+
+
+def test_demo_progress_messages_do_not_contain_credentials():
+    source = SCRIPT.read_text()
+    assert "agent running" in source
+    assert 'print(token' not in source
+    assert 'Authorization: Bearer' not in source

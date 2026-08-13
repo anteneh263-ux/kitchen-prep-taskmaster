@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import sys
+import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -72,7 +74,21 @@ def main() -> int:
 
     try:
         token = _identity_token()
-        run = _json_request(f"{args.worker.rstrip('/')}/runs/daily", token=token, payload=payload)
+        print("Invoking authenticated Cloud Run worker...", flush=True)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            pending = executor.submit(
+                _json_request,
+                f"{args.worker.rstrip('/')}/runs/daily",
+                token=token,
+                payload=payload,
+            )
+            started = time.monotonic()
+            while not pending.done():
+                elapsed = int(time.monotonic() - started)
+                print(f"  agent running · {elapsed:02d}s", flush=True)
+                time.sleep(3)
+            run = pending.result()
+        print("Worker completed. Reading the published plan...", flush=True)
         plan = _json_request(f"{args.viewer.rstrip('/')}/plans/latest")
     except (FileNotFoundError, subprocess.CalledProcessError):
         print("ERROR: gcloud authentication failed. Run `gcloud auth login` first.", file=sys.stderr)
