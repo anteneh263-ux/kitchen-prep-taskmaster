@@ -38,7 +38,7 @@ Do not submit until every unchecked item is complete.
 - [x] Production run reports `briefing_source: gemini`.
 - [x] Forced replay preserves identical FEFO consumption and remaining stock.
 - [x] Public viewer mutation route and API docs return 404.
-- [x] Offline suite: 122 passed; live-key integration path separately verified in
+- [x] Offline suite: 124 passed; live-key integration path separately verified in
       production.
 
 ## Devpost fields

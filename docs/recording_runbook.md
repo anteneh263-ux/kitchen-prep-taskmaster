@@ -38,7 +38,11 @@ Before recording:
 ```bash
 cd "$HOME/Downloads/kitchen-prep-taskmaster-v2"
 gcloud config set project kitchen-prep-taskmaster-263
+python scripts/recording_preflight.py
 ```
+
+Do not start the take unless the final line says `READY TO RECORD`. The preflight
+is read-only: it does not invoke the worker or change Firestore.
 
 During the unedited live execution, run:
 
@@ -72,7 +76,7 @@ Prepare this output before recording, or run it if timing permits:
 pytest -q
 ```
 
-Expected offline result: `122 passed, 1 skipped`. The skipped test is the
+Expected offline result: `124 passed, 1 skipped`. The skipped test is the
 credentialed integration test; the live production execution is the evidence for
 that path.
 

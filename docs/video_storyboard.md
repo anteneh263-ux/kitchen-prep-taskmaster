@@ -33,7 +33,7 @@ show the real production run. Every spoken claim must have visible evidence.
 | 1:54–2:32 | “Now I’ll run the real production agent. The command obtains authentication internally and prints only judge-safe evidence—not the identity token or full inventory payload.” After completion: “Gemini produced and passed the forecast, Gemini produced the briefing, and the plan used replay-safe dated inventory with deterministic post-consumption ordering.” | Terminal running `python scripts/run_production_demo.py`. Keep the whole wait visible and uncut. Output must show `gemini`, `gemini_ok`, `date_input_output_snapshot` and `today_consumption_plus_par`. | Single live terminal shot. Do not switch away while it runs. |
 | 2:32–3:12 | “The refreshed plan traces the same run from the live guest input through dish forecasts, validation, FEFO batch withdrawals and publication. The kitchen receives prioritized prep, today’s shortfall separately from future orders, and supplier delivery dates.” Read the current counts from the screen rather than memorizing demo-day values. | Refresh dashboard. Show **Autonomous run**, prioritized prep, shortfall and replenishment. | Smooth vertical scroll; pause on each evidence group. |
 | 3:12–3:28 | “The agent briefing recommends how to resolve the shortage, but marks that action for human approval. Gemini provides judgment; deterministic code owns the quantities.” If the live plan has no shortage, say that no approval action was needed today. | **Agent briefing**, current recommendation and **Human approval required** badge when present. | Hold long enough for the current action or empty state to be read. |
-| 3:28–3:40 | “The repository includes reproducible deployment instructions and 122 passing tests covering validation, fallback, FEFO, replay safety and public-route security.” | Prepared terminal test result or GitHub test evidence. | Static proof shot. |
+| 3:28–3:40 | “The repository includes reproducible deployment instructions and 124 passing tests covering validation, fallback, FEFO, replay safety and public-route security.” | Prepared terminal test result or GitHub test evidence. | Static proof shot. |
 | 3:40–3:50 | “Kitchen Prep Taskmaster is the autonomous kitchen agent that runs the daily loop and shows its work. Open the live read-only plan and inspect the evidence.” | Dashboard hero plus hosted URL and GitHub URL. | Return to hero; simple fade only after the continuous proof is complete. |
 
 ## Visual system
@@ -60,6 +60,9 @@ Prepare exactly these surfaces before recording:
 Close unrelated tabs, disable notifications and clear sensitive terminal
 scrollback. Do not open Secret Manager. Run `python scripts/run_production_demo.py`
 only during the take so the live execution remains genuine.
+
+Immediately before recording, run `python scripts/recording_preflight.py`. It is
+read-only and must end with `READY TO RECORD`.
 
 ## Acceptance check
 

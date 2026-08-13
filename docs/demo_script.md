@@ -101,7 +101,7 @@ Point to these live results in the viewer:
 Show the GitHub repository test section or a terminal with the test result.
 
 > The repository contains reproducible local and Cloud Run setup instructions,
-> a complete architecture document, synthetic data and 122 passing tests. It
+> a complete architecture document, synthetic data and 124 passing tests. It
 > tests forecast contracts, fallback behavior, FEFO, idempotency, forced plan
 > replacement, API security and the English judge interface. The worker stays
 > private, while the read-only viewer remains available to judges.
