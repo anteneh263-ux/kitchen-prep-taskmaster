@@ -40,7 +40,9 @@ def _resolve_forecast(date: str, covers: int, weather: dict, client) -> tuple[Fo
     context = forecast_step.build_context(date, covers, weather, weekday)
     try:
         raw = forecast_step.propose(client, context)
-        return validate_and_build(raw), "gemini_ok"
+        # The authoritative date/covers are passed in, not read back from the model.
+        forecast = validate_and_build(raw, forecast_date=date, expected_covers=covers)
+        return forecast, "gemini_ok"
     except GeminiUnavailable as exc:
         return baseline_forecast(date, covers), f"fallback:model_unavailable:{exc}"
     except ForecastRejected as exc:

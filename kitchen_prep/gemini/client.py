@@ -76,6 +76,43 @@ def classify_model_error(exc: Exception):
     raise exc
 
 
+def build_forecast_prompt(context: dict[str, Any]) -> str:
+    """Build the step-1 prompt. Module level so it can be asserted on without
+    network or credentials.
+
+    The allowed dish IDs are spelled out verbatim: a model given only "propose
+    expected_qty per dish" invents plausible dishes (production returned
+    ``chilled_gazpacho_soup``), which the validator then rejects into a fallback.
+    """
+    import json
+
+    allowed = list(context.get("allowed_dish_ids", []))
+    return (
+        "You are a restaurant demand forecaster. Use ONLY the supplied context: "
+        "the authoritative forecast date and expected covers, the weekday, the "
+        "weather and the last same-weekday observations per dish.\n"
+        "Historical days had different cover counts, so absolute qty_sold is NOT "
+        "comparable across days. For each dish, average the qty_per_cover of its "
+        "observations and multiply that per-cover rate by today's expected_covers "
+        f"({context.get('expected_covers')}), then round to an integer. Never copy "
+        "a historical qty_sold straight through.\n"
+        "Hard requirements:\n"
+        f"1. Return exactly one forecast row for EVERY allowed dish ID: {allowed}\n"
+        "2. Never invent, rename or substitute a dish; any dish_id outside that "
+        "list is invalid.\n"
+        "3. Never repeat a dish_id — no duplicate rows.\n"
+        f"4. Echo forecast_date ({context.get('forecast_date')}) and "
+        f"expected_covers ({context.get('expected_covers')}) unchanged.\n"
+        "5. expected_qty must be a non-negative integer; confidence must be one "
+        'of "high", "medium", "low"; reasoning must be a non-empty string; '
+        "drivers must be a non-empty list of strings.\n"
+        "6. Return ONLY JSON, no prose and no markdown fences, matching: "
+        "{forecast_date, expected_covers, dishes:[{dish_id, expected_qty(int), "
+        "confidence, reasoning}], drivers:[...]}\n"
+        f"Context: {json.dumps(context, ensure_ascii=False, sort_keys=True, default=str)}"
+    )
+
+
 class OfflineClient:
     """Used when no API key is configured (local dev / tests)."""
 
@@ -129,14 +166,7 @@ class RealGeminiClient:  # pragma: no cover - requires network + credentials
             raise GeminiUnavailable("model returned non-JSON output") from exc
 
     def propose_forecast(self, context: dict[str, Any]) -> dict:
-        prompt = (
-            "You are a restaurant demand forecaster. Given covers, weather and "
-            "recent same-weekday sales, propose expected_qty per dish. Return ONLY "
-            "JSON matching: {forecast_date, expected_covers, dishes:[{dish_id, "
-            "expected_qty(int), confidence, reasoning}], drivers:[...]}. "
-            f"Context: {context}"
-        )
-        return self._generate_json(prompt)
+        return self._generate_json(build_forecast_prompt(context))
 
     def propose_briefing(self, plan: dict[str, Any]) -> dict:
         prompt = (

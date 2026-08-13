@@ -1,5 +1,10 @@
-"""Deterministic baseline forecast: average qty for the same weekday over the
-last 4 occurrences strictly before the target date."""
+"""Deterministic baseline forecast.
+
+Per dish: mean of qty_sold/covers over the last 4 same-weekday observations
+strictly before the target date, scaled to today's expected covers. Absolute
+historical quantities are never copied — a 150-cover Friday would otherwise
+inflate an 80-cover Friday and push the plan outside the dishes-per-cover band.
+"""
 from __future__ import annotations
 
 from ..contracts import DishForecast, Forecast
@@ -8,6 +13,8 @@ from ..data_access import sales as sales_da
 
 WEEKDAY_NAMES = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
 
+HISTORY_WEEKS = 4
+
 
 def baseline_forecast(date: str, expected_covers: int) -> Forecast:
     from datetime import date as _date
@@ -15,16 +22,22 @@ def baseline_forecast(date: str, expected_covers: int) -> Forecast:
     weekday = _date.fromisoformat(date).weekday()
     dishes: list[DishForecast] = []
     for dish_id in menu_da.dish_ids():
-        history = sales_da.same_weekday_history(date, dish_id, weeks=4)
-        qty = round(sum(history) / len(history)) if history else 0
+        observations = sales_da.same_weekday_observations(date, dish_id, weeks=HISTORY_WEEKS)
+        if observations:
+            per_cover = sum(o["qty_per_cover"] for o in observations) / len(observations)
+            qty = round(per_cover * expected_covers)
+        else:
+            per_cover = 0.0
+            qty = 0
         dishes.append(
             DishForecast(
                 dish_id=dish_id,
                 expected_qty=int(qty),
                 confidence="medium",
                 reasoning=(
-                    f"Deterministisk baseline: snitt siste {len(history)} "
-                    f"{WEEKDAY_NAMES[weekday]}(er) = {qty}"
+                    f"Deterministisk baseline: snitt siste {len(observations)} "
+                    f"{WEEKDAY_NAMES[weekday]}(er) = {per_cover:.4f} per gjest "
+                    f"x {expected_covers} gjester = {qty}"
                 ),
             )
         )
