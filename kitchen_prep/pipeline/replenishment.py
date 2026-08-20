@@ -18,7 +18,11 @@ from ..data_access import menu as menu_da
 PLANNING_BASIS = "today_consumption_plus_par"
 
 
-def compute_orders(remaining_by_item: dict[str, list[dict]], run_date: str) -> list[dict]:
+def compute_orders(
+    remaining_by_item: dict[str, list[dict]],
+    run_date: str,
+    pending_orders: list[dict] | None = None,
+) -> list[dict]:
     ingredients = menu_da.ingredients_by_id()
     run = _date.fromisoformat(run_date)
     orders: list[dict] = []
@@ -31,6 +35,12 @@ def compute_orders(remaining_by_item: dict[str, list[dict]], run_date: str) -> l
         remaining = remaining_by_item.get(item_id, [])
         stock_at_delivery = sum(
             b["qty"] for b in remaining if _date.fromisoformat(b["expiry_date"]) >= delivery
+        )
+        stock_at_delivery += sum(
+            order["order_qty"]
+            for order in (pending_orders or [])
+            if order["item_id"] == item_id
+            and run < _date.fromisoformat(order["delivery_date"]) <= delivery
         )
 
         par = meta["par_level"]

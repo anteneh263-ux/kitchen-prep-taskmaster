@@ -25,7 +25,9 @@ class BaseStore:
     def get_latest_plan(self) -> dict | None: ...
     def list_plans(self, limit: int = 14) -> list[dict]: ...
     def append_run_log(self, run_id: str, entry: dict) -> None: ...
-    def get_or_create_inventory_input(self, date: str, seed_batches: list[dict]) -> list[dict]: ...
+    def get_or_create_inventory_input(
+        self, date: str, seed_batches: list[dict], arrivals: list[dict] | None = None
+    ) -> list[dict]: ...
     def save_inventory_output(self, date: str, batches: list[dict]) -> None: ...
 
 
@@ -87,7 +89,9 @@ class LocalJsonStore(BaseStore):
     def _inventory_path(self, date: str) -> Path:
         return self.inventory_dir / f"{date}.json"
 
-    def get_or_create_inventory_input(self, date: str, seed_batches: list[dict]) -> list[dict]:
+    def get_or_create_inventory_input(
+        self, date: str, seed_batches: list[dict], arrivals: list[dict] | None = None
+    ) -> list[dict]:
         """Freeze the input for a date; force-runs replay from the same snapshot."""
         path = self._inventory_path(date)
         if path.exists():
@@ -101,6 +105,7 @@ class LocalJsonStore(BaseStore):
                 previous_output = json.load(fh).get("output_batches")
         source = seed_batches if previous_output is None else previous_output
         input_batches = [dict(batch) for batch in source]
+        input_batches.extend(dict(batch) for batch in (arrivals or []))
         with open(path, "w", encoding="utf-8") as fh:
             json.dump({"date": date, "input_batches": input_batches}, fh, indent=2)
         return input_batches
@@ -168,7 +173,9 @@ class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credential
     def append_run_log(self, run_id: str, entry: dict) -> None:
         self.db.collection("run_logs").document(run_id).collection("steps").add(entry)
 
-    def get_or_create_inventory_input(self, date: str, seed_batches: list[dict]) -> list[dict]:
+    def get_or_create_inventory_input(
+        self, date: str, seed_batches: list[dict], arrivals: list[dict] | None = None
+    ) -> list[dict]:
         from google.cloud import firestore  # lazy import
 
         ref = self.db.collection("inventory_snapshots").document(date)
@@ -189,6 +196,7 @@ class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credential
             previous_output = previous[0].to_dict().get("output_batches") if previous else None
             source = seed_batches if previous_output is None else previous_output
             input_batches = [dict(batch) for batch in source]
+            input_batches.extend(dict(batch) for batch in (arrivals or []))
             txn.create(ref, {"date": date, "input_batches": input_batches})
             return input_batches
 

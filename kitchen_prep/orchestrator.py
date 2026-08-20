@@ -8,13 +8,14 @@ markdown -> persist. The run log is always written (finally), even on failure.
 from __future__ import annotations
 
 import logging
-from datetime import date as _date, datetime
+from datetime import date as _date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from . import config
 from .contracts import Forecast
 from .data_access import bookings as bookings_da
+from .data_access import menu as menu_da
 from .data_access import store as store_da
 from .data_access import weather as weather_da
 from .gemini import briefing_step, forecast_step
@@ -55,6 +56,41 @@ def _resolve_forecast(date: str, covers: int, weather: dict, client) -> tuple[Fo
         return baseline_forecast(date, covers), f"fallback:rejected:{exc}"
 
 
+def _prior_orders(store: store_da.BaseStore, run_date: str) -> list[dict]:
+    """Return orders from earlier plans that arrive on or after ``run_date``."""
+    orders: list[dict] = []
+    for plan in store.list_plans(limit=365):
+        if plan.get("date", run_date) >= run_date:
+            continue
+        orders.extend(
+            dict(order)
+            for order in plan.get("replenishment_orders", [])
+            if order.get("delivery_date", "") >= run_date
+        )
+    return orders
+
+
+def _arrival_batches(run_date: str, orders: list[dict]) -> list[dict]:
+    """Convert orders due today into stable, dated inventory batches."""
+    ingredients = menu_da.ingredients_by_id()
+    delivered = _date.fromisoformat(run_date)
+    arrivals: list[dict] = []
+    for order in orders:
+        if order["delivery_date"] != run_date:
+            continue
+        item_id = order["item_id"]
+        expiry = delivered + timedelta(days=int(ingredients[item_id]["shelf_life_days"]))
+        arrivals.append(
+            {
+                "batch_id": f"delivery-{order['order_by_date']}-{item_id}",
+                "item_id": item_id,
+                "qty": order["order_qty"],
+                "expiry_date": expiry.isoformat(),
+            }
+        )
+    return sorted(arrivals, key=lambda batch: batch["batch_id"])
+
+
 def run_daily_prep(
     date: str | None = None,
     store: store_da.BaseStore | None = None,
@@ -91,8 +127,10 @@ def run_daily_prep(
         required = ingredients_pipe.explode_to_ingredients(forecast)
         log("ingredient_requirements", items=len(required))
 
-        batches = store.get_or_create_inventory_input(date, store_da.load_seed_batches())
-        log("inventory_input", batches=len(batches))
+        prior_orders = _prior_orders(store, date)
+        arrivals = _arrival_batches(date, prior_orders)
+        batches = store.get_or_create_inventory_input(date, store_da.load_seed_batches(), arrivals)
+        log("inventory_input", batches=len(batches), arrivals=len(arrivals))
         consumption = prep_pipe.consume_today(required, batches, date)
         log(
             "consume_today",
@@ -101,7 +139,8 @@ def run_daily_prep(
         )
 
         prep_tasks = prep_pipe.build_prep_tasks(forecast)
-        orders = replen_pipe.compute_orders(consumption["remaining_by_item"], date)
+        pending_orders = [order for order in prior_orders if order["delivery_date"] > date]
+        orders = replen_pipe.compute_orders(consumption["remaining_by_item"], date, pending_orders)
         log("replenishment", orders=len(orders))
 
         remaining_stock = {

@@ -19,10 +19,50 @@ def test_next_day_starts_from_previous_output(tmp_store):
 
     first_snapshot = _snapshot(tmp_store, config.DEMO_DATE)
     next_snapshot = _snapshot(tmp_store, next_date)
-    assert next_snapshot["input_batches"] == first_snapshot["output_batches"]
+    carried = [
+        batch
+        for batch in next_snapshot["input_batches"]
+        if not batch["batch_id"].startswith("delivery-")
+    ]
+    assert carried == first_snapshot["output_batches"]
     assert sum(first["remaining_stock"].values()) == sum(
-        batch["qty"] for batch in next_snapshot["input_batches"]
+        batch["qty"]
+        for batch in next_snapshot["input_batches"]
+        if not batch["batch_id"].startswith("delivery-")
     )
+
+
+def test_orders_become_dated_batches_on_delivery_day(tmp_store):
+    first = run_daily_prep(config.DEMO_DATE, store=tmp_store, client=OfflineClient())
+    next_date = "2026-08-15"
+    due = {
+        order["item_id"]: order
+        for order in first["replenishment_orders"]
+        if order["delivery_date"] == next_date
+    }
+
+    run_daily_prep(next_date, store=tmp_store, client=OfflineClient())
+    arrivals = {
+        batch["item_id"]: batch
+        for batch in _snapshot(tmp_store, next_date)["input_batches"]
+        if batch["batch_id"].startswith("delivery-")
+    }
+
+    assert arrivals.keys() == due.keys()
+    for item_id, batch in arrivals.items():
+        assert batch["qty"] == due[item_id]["order_qty"]
+        assert batch["batch_id"] == f"delivery-{config.DEMO_DATE}-{item_id}"
+
+
+def test_pending_delivery_prevents_duplicate_order(tmp_store):
+    first = run_daily_prep(config.DEMO_DATE, store=tmp_store, client=OfflineClient())
+    assert any(
+        order["item_id"] == "chicken_wings" and order["delivery_date"] == "2026-08-16"
+        for order in first["replenishment_orders"]
+    )
+
+    second = run_daily_prep("2026-08-15", store=tmp_store, client=OfflineClient())
+    assert all(order["item_id"] != "chicken_wings" for order in second["replenishment_orders"])
 
 
 def test_force_replays_same_input_and_does_not_double_consume(tmp_store):
