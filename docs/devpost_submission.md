@@ -164,7 +164,9 @@ Inventory persistence introduced a second replay problem: a forced rerun must
 not start from the previous run's output and consume the same stock again. Each
 date therefore freezes its input and output snapshots. A replay uses the same
 input and deterministically reproduces the same FEFO consumption and remaining
-stock.
+stock. Supplier orders become stable, dated batches on delivery, while open
+orders count toward stock at delivery so the next morning cannot order the same
+quantity again.
 
 ## What I learned
 
@@ -180,16 +182,17 @@ stock.
 ## Production evidence
 
 - Private worker: `kitchen-prep-taskmaster-web`, region `europe-north1`, current
-  revision `kitchen-prep-taskmaster-web-00006-jgp`.
+  revision `kitchen-prep-taskmaster-web-00010-q5j`.
 - Public read-only viewer: `kitchen-prep-viewer`, current revision
-  `kitchen-prep-viewer-00007-zld`.
+  `kitchen-prep-viewer-00008-n2v`.
 - Cloud Scheduler: `kitchen-prep-daily`, enabled at `0 7 * * *`, timezone
   `Europe/Oslo`.
 - Verified production run: `forecast_source: gemini`,
   `forecast_note: gemini_ok`, `briefing_source: gemini`.
-- Verified forced replay: identical FEFO consumption and remaining stock, with
-  `inventory_basis: date_input_output_snapshot`.
-- Offline test suite: 124 passed, 1 integration test skipped without a live key.
+- Verified replay-safe snapshots and controlled production migration; the
+  current plan records `inventory_basis: epoch_seed_snapshot`, while ordinary
+  subsequent dates return to `date_input_output_snapshot`.
+- Offline test suite: 128 passed, 1 integration test skipped without a live key.
 
 ## Links
 

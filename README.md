@@ -12,7 +12,7 @@ Scheduler and Firestore.
 
 | | |
 | --- | --- |
-| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00006-jgp` in `europe-north1` (private, authenticated) |
+| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00010-q5j` in `europe-north1` (private, authenticated) |
 | **Hosted judge URL** | https://kitchen-prep-viewer-373405758807.europe-north1.run.app |
 | **Demo Video** | TO BE ADDED |
 | **GitHub Repository** | https://github.com/anteneh263-ux/kitchen-prep-taskmaster |
@@ -66,7 +66,8 @@ pipeline uses Gemini through the Google Gen AI SDK:
    discarding already-expired batches as flagged waste.
 6. Reports what today's service is genuinely short of, as prep shortfalls.
 7. **Replenishes what is actually left back up to par**, dropping batches that
-   will expire before the delivery date arrives.
+   will expire before delivery and accounting for open orders. Orders become
+   dated FEFO batches when their delivery date arrives.
 8. **Gemini prioritises and explains** — a briefing with a summary, ranked
    tasks, recommended actions and warnings, in a validated JSON shape.
 9. Renders Markdown in Python, stores the plan, and writes a run log.
@@ -102,8 +103,9 @@ order.
 - **Prep shortfalls kept separate from replenishment** — "we are short *today*"
   is a kitchen problem; "order up to par" is a purchasing problem. Conflating
   them is the classic source of ordering errors.
-- **Par-level replenishment on post-consumption stock**, with batches that
-  expire before delivery excluded from the reorder basis.
+- **Par-level replenishment on post-consumption stock**, with expiring batches
+  excluded and open deliveries counted; received orders become dated FEFO
+  batches without duplicate ordering.
 - **Gemini prioritisation and briefing**, validated against a fixed JSON
   contract before publication.
 - **Idempotent per date** — Scheduler retries never produce a second plan.
@@ -297,7 +299,7 @@ none of these.**
 pytest -m "not integration"
 ```
 
-**Result: 76 passed, 1 deselected** — no network, no API key, no cloud
+**Result: 128 passed, 1 deselected** — no network, no API key, no cloud
 resources required.
 
 ```bash
@@ -311,6 +313,7 @@ What the suite actually proves:
 | --- | --- |
 | `test_no_double_count.py` | Today's demand is removed before the par calculation and never counted twice |
 | `test_prep_vs_replenishment.py` | Today's shortfalls stay separate from future orders; stock expiring before delivery is excluded from the reorder basis |
+| `test_inventory_persistence.py` | Snapshots are replay-safe; deliveries become dated batches; pending orders prevent duplicates; an explicit epoch can start a clean audited chain |
 | `test_fefo.py` | Earliest-expiry batches are consumed first; expired stock is flagged, not consumed |
 | `test_forecast_validate.py` | Missing dishes, unknown ids, non-integer or negative quantities, and out-of-band ratios are all rejected |
 | `test_briefing_contract.py` | The briefing JSON contract is enforced |
@@ -350,9 +353,9 @@ Google Cloud Run in `europe-north1`. The reproducible commands live in
 [`deploy/cloud_run.md`](deploy/cloud_run.md) and
 [`deploy/scheduler.md`](deploy/scheduler.md).
 
-Verified production state on 2026-08-13:
+Verified production state on 2026-08-20:
 
-- private worker revision `kitchen-prep-taskmaster-web-00006-jgp`, serving 100%
+- private worker revision `kitchen-prep-taskmaster-web-00010-q5j`, serving 100%
   of traffic;
 - Firestore persistence enabled with `KP_STORE=firestore`;
 - Secret Manager injects `GOOGLE_API_KEY` at runtime;
@@ -362,7 +365,7 @@ Verified production state on 2026-08-13:
   `forecast_note: gemini_ok`, and `briefing_source: gemini`.
 
 The worker remains private. A separate public, read-only judge viewer runs as
-`kitchen-prep-viewer-00007-zld` with only Firestore viewer permission. It
+`kitchen-prep-viewer-00008-n2v` with only Firestore viewer permission. It
 receives no Gemini secret, and `/runs/daily`, `/docs`, `/redoc` and
 `/openapi.json` all return 404.
 
@@ -382,6 +385,9 @@ gcloud run deploy kitchen-prep-taskmaster-web \
 ```
 
 `GOOGLE_API_KEY` should be supplied via Secret Manager, not `--set-env-vars`.
+`KP_INVENTORY_EPOCH=YYYY-MM-DD` is an optional migration control. On that date
+only, the pipeline starts a fresh synthetic par-stock snapshot, ignores older
+pending orders and publishes `inventory_basis: epoch_seed_snapshot`.
 
 The public read-only service runs `kitchen_prep.public_server:app` under a
 separate service account with only `roles/datastore.viewer`. It exposes `/`,
@@ -464,11 +470,11 @@ rather than take it on trust.
 Stated plainly, because a hackathon demo that hides its edges is not useful.
 
 - **Inventory is persisted as replay-safe daily snapshots.** The first run starts
-  from the synthetic seed. Each later date freezes the previous date's output as
-  its input; a forced rerun of the same date reuses its original input snapshot,
-  so it cannot consume stock twice. Calculated purchase orders are deliberately
-  not added to inventory automatically: an explicit receiving event is still a
-  future integration.
+  from the synthetic seed. Each later date freezes the previous output plus
+  orders due that day as dated FEFO input batches. A forced rerun reuses the
+  frozen input, so it cannot consume or receive twice. Pending deliveries count
+  toward stock at delivery and prevent duplicate orders. Physical receiving
+  discrepancies remain a future integration.
 - **Intermediate demand during multi-day lead times is not modelled.** For an
   ingredient with a 3-day lead time, the order covers the gap to par at the
   delivery date, but demand occurring between today and delivery is not
@@ -607,7 +613,7 @@ system produces identical output on any machine, offline.
 ## Demo
 
 - **Cloud Run worker:** deployed privately; revision
-  `kitchen-prep-taskmaster-web-00006-jgp`
+  `kitchen-prep-taskmaster-web-00010-q5j`
 - **Judge-facing viewer:**
   https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 - **Demo Video:** TO BE ADDED

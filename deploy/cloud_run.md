@@ -62,7 +62,11 @@ gcloud run deploy kitchen-prep-taskmaster-web \
 With `KP_STORE=firestore`, plans, run logs and replay-safe dated inventory live
 in Firestore (`daily_plans`, `run_logs`, `inventory_snapshots`). The published
 markdown is stored on `daily_plans/{date}`; `inventory_snapshots/{date}` stores
-the frozen input and post-consumption output batches.
+the frozen input and post-consumption output batches. Orders due on a run date
+become stable, dated FEFO batches; still-pending orders count toward stock at
+delivery to prevent duplicate ordering. For a controlled synthetic-data
+migration, set `KP_INVENTORY_EPOCH=YYYY-MM-DD`; that date starts fresh par stock
+and records `inventory_basis: epoch_seed_snapshot` without rewriting history.
 
 ## Public read-only viewer
 

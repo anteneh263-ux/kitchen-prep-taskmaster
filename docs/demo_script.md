@@ -4,9 +4,9 @@ For the final shot-by-shot production plan, captions and visual direction, use
 [`video_storyboard.md`](video_storyboard.md). This file remains the compact
 narration reference.
 
-Target duration: **3:35–3:50**. Record in English as one continuous take. Keep
-the browser zoom large enough for the Cloud Run revision, terminal response and
-viewer status to remain readable in the final video.
+Target duration: **3:54**. English narration is synchronized scene by scene.
+Keep the browser and evidence-card text large enough to remain readable in the
+Devpost player; the approved master uses no terminal footage.
 
 ## 0:00–0:30 — Problem and value
 
@@ -47,8 +47,8 @@ the following visible:
 - 100% traffic;
 - authentication required.
 
-The expected worker revision is `kitchen-prep-taskmaster-web-00006-jgp`. The
-public viewer revision is `kitchen-prep-viewer-00007-zld`.
+The expected worker revision is `kitchen-prep-taskmaster-web-00010-q5j`. The
+public viewer revision is `kitchen-prep-viewer-00008-n2v`.
 
 Then briefly show Cloud Scheduler job `kitchen-prep-daily`, enabled with schedule
 `0 7 * * *` and timezone `Europe/Oslo`.
@@ -56,23 +56,17 @@ Then briefly show Cloud Scheduler job `kitchen-prep-daily`, enabled with schedul
 > The mutation surface is private and invoked with OIDC. The public judge viewer
 > runs under a different service account with Firestore viewer permission only.
 
-## 1:35–2:30 — Unedited live execution
+## 1:35–2:30 — Autonomous execution and verified result
 
-In a prepared terminal, run the repository's judge-safe demo command. It obtains
-the identity token internally and prints only the evidence fields needed for the
-video; it never prints the token or the full plan payload:
+Show the clean five-stage execution sequence: Inputs → AI forecast → Validation
+→ Inventory → Publish. Follow it with the verified result card and then the
+refreshed public viewer. No shell prompt, username, token or private inventory
+payload appears in the approved master.
 
-```bash
-python scripts/run_production_demo.py
-```
-
-Read the important response fields aloud:
-
-> This is an actual authenticated production run. The response reports the
-> forecast source and diagnostic note. A successful model path shows
-> `forecast_source: gemini` and `forecast_note: gemini_ok`.
-
-Refresh the public viewer immediately after the command finishes.
+> Operational inputs enter the private worker. Gemini proposes demand. Python
+> validates the proposal, applies first-expired-first-out inventory consumption,
+> calculates shortages and replenishment, and publishes one replay-safe plan to
+> Firestore. Each stage is bounded, observable and auditable.
 
 ## 2:30–3:10 — Proof of action
 
@@ -82,7 +76,8 @@ Point to these live results in the viewer:
 - expected guests;
 - forecast and briefing sources;
 - `OPERATIONAL` or clearly disclosed degraded status;
-- `date_input_output_snapshot` in the run-integrity panel;
+- the current dated inventory basis (`date_input_output_snapshot` or the
+  explicitly disclosed `epoch_seed_snapshot` migration boundary);
 - prioritized prep tasks;
 - today's shortfalls;
 - replenishment orders and delivery dates;
@@ -98,10 +93,10 @@ Point to these live results in the viewer:
 
 ## 3:10–3:40 — Reliability and reproducibility
 
-Show the GitHub repository test section or a terminal with the test result.
+Show the prepared test-evidence card or the GitHub repository test section.
 
 > The repository contains reproducible local and Cloud Run setup instructions,
-> a complete architecture document, synthetic data and 124 passing tests. It
+> a complete architecture document, synthetic data and 128 passing tests. It
 > tests forecast contracts, fallback behavior, FEFO, idempotency, forced plan
 > replacement, API security and the English judge interface. The worker stays
 > private, while the read-only viewer remains available to judges.

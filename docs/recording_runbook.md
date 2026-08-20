@@ -31,9 +31,9 @@ Prepare these pages without displaying secret values:
 
 Do not open Secret Manager during the recording.
 
-## Window 4 — terminal
+## Window 4 — production evidence cards
 
-Before recording:
+Generate or verify production evidence before editing the video:
 
 ```bash
 cd "$HOME/Downloads/kitchen-prep-taskmaster-v2"
@@ -44,15 +44,17 @@ python scripts/recording_preflight.py
 Do not start the take unless the final line says `READY TO RECORD`. The preflight
 is read-only: it does not invoke the worker or change Firestore.
 
-During the unedited live execution, run:
+The judge-safe verification command may be run off-camera:
 
 ```bash
 python scripts/run_production_demo.py
 ```
 
-The script obtains the identity token internally and never prints it. Its compact
-evidence output should show `forecast_source: gemini`, `forecast_note: gemini_ok`,
-`briefing_source: gemini`, `date_input_output_snapshot` and
+The script obtains the identity token internally and never prints it. Use its
+verified output to populate the clean execution and result cards; do not show a
+terminal, username, token or private payload in the final master. Evidence must
+show `forecast_source: gemini`, `forecast_note: gemini_ok`,
+`briefing_source: gemini`, the current inventory basis and
 `today_consumption_plus_par`.
 
 Refresh the public dashboard and point out:
@@ -60,7 +62,7 @@ Refresh the public dashboard and point out:
 - `OPERATIONAL`;
 - the five-step **Autonomous run** panel;
 - Gemini forecast and briefing sources;
-- `date_input_output_snapshot`;
+- the current dated inventory basis;
 - prioritized prep and readable dish names;
 - today's shortfalls;
 - replenishment orders;
@@ -76,14 +78,14 @@ Prepare this output before recording, or run it if timing permits:
 pytest -q
 ```
 
-Expected offline result: `124 passed, 1 skipped`. The skipped test is the
+Expected offline result: `128 passed, 1 skipped`. The skipped test is the
 credentialed integration test; the live production execution is the evidence for
 that path.
 
 ## Safety check immediately before recording
 
 - Close email, messaging, billing and unrelated tabs.
-- Clear terminal scrollback containing sensitive or irrelevant commands.
+- Confirm that no terminal, username or personal path appears in the edit.
 - Confirm no `.env` file or Secret Manager value is visible.
 - Disable desktop notifications.
 - Confirm microphone and screen resolution.

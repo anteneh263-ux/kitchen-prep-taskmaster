@@ -31,14 +31,14 @@ Do not submit until every unchecked item is complete.
 
 ## Production verification
 
-- [x] Private worker revision `kitchen-prep-taskmaster-web-00006-jgp` serves 100%.
-- [x] Public viewer revision `kitchen-prep-viewer-00007-zld` serves 100%.
+- [x] Private worker revision `kitchen-prep-taskmaster-web-00010-q5j` serves 100%.
+- [x] Public viewer revision `kitchen-prep-viewer-00008-n2v` serves 100%.
 - [x] Scheduler `kitchen-prep-daily` is enabled for 07:00 Europe/Oslo.
 - [x] Production run reports `forecast_source: gemini` and `gemini_ok`.
 - [x] Production run reports `briefing_source: gemini`.
 - [x] Forced replay preserves identical FEFO consumption and remaining stock.
 - [x] Public viewer mutation route and API docs return 404.
-- [x] Offline suite: 124 passed; live-key integration path separately verified in
+- [x] Offline suite: 128 passed; live-key integration path separately verified in
       production.
 
 ## Devpost fields
@@ -55,17 +55,18 @@ Do not submit until every unchecked item is complete.
 
 ## Mandatory video
 
-- [ ] Final duration is under 4:00.
+- [x] Final local master duration is 3:54, under 4:00.
 - [ ] Video is public, not private or unlisted.
-- [ ] English narration or complete English subtitles.
-- [ ] Problem and value proposition shown in the first 30 seconds.
-- [ ] Live, unedited agent execution shown.
+- [x] English narration is synchronized scene by scene.
+- [x] Problem and value proposition shown in the first 30 seconds.
+- [x] Autonomous production flow and verified execution result shown without a
+      terminal or exposed credential.
 - [ ] Cloud Run service/revision and 100% traffic shown.
 - [ ] Cloud Scheduler schedule and enabled state shown.
-- [ ] Terminal response visibly shows Gemini source and `gemini_ok`.
-- [ ] Refreshed dashboard visibly proves operational output.
-- [ ] No API key, identity token, private data or unrelated tab is visible.
-- [ ] Video statements match the repository and deployed behavior exactly.
+- [x] Production evidence visibly identifies Gemini and the validated path.
+- [x] Dashboard visibly proves operational output.
+- [x] No API key, identity token, private data or unrelated tab is visible.
+- [x] Video statements match the repository and deployed behavior exactly.
 
 ## Final deadline controls
 

@@ -153,11 +153,13 @@ transport and storage.
 `daily_plans`, `run_logs` and `inventory_snapshots` are written through either
 backend (`LocalJsonStore` for local development, `FirestoreStore` when
 `KP_STORE=firestore`). The first inventory date starts from the synthetic seed.
-For each later date the store freezes the latest earlier output as that date's
-input. Forced reruns reuse the frozen input rather than the prior output, making
-replay safe and preventing double consumption. Purchase orders remain proposed
-actions; stock changes only through consumption until an explicit receiving
-integration is added.
+For each later date, the store freezes the latest earlier output plus orders due
+that day as dated FEFO input batches. Forced reruns reuse the frozen input rather
+than receiving or consuming twice. Pending orders count toward stock at their
+delivery date, preventing duplicate replenishment. An explicit
+`KP_INVENTORY_EPOCH` can start a fresh, auditable synthetic par-stock chain
+without rewriting older plans; physical receiving discrepancies remain outside
+the demo scope.
 
 ## Request flow, end to end
 
