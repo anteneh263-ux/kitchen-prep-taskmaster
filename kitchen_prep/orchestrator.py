@@ -8,6 +8,7 @@ markdown -> persist. The run log is always written (finally), even on failure.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date as _date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -59,8 +60,10 @@ def _resolve_forecast(date: str, covers: int, weather: dict, client) -> tuple[Fo
 def _prior_orders(store: store_da.BaseStore, run_date: str) -> list[dict]:
     """Return orders from earlier plans that arrive on or after ``run_date``."""
     orders: list[dict] = []
+    epoch = os.environ.get("KP_INVENTORY_EPOCH")
     for plan in store.list_plans(limit=365):
-        if plan.get("date", run_date) >= run_date:
+        plan_date = plan.get("date", run_date)
+        if plan_date >= run_date or (epoch and plan_date < epoch):
             continue
         orders.extend(
             dict(order)
@@ -127,10 +130,22 @@ def run_daily_prep(
         required = ingredients_pipe.explode_to_ingredients(forecast)
         log("ingredient_requirements", items=len(required))
 
+        epoch = os.environ.get("KP_INVENTORY_EPOCH")
+        reset_from_seed = date == epoch
         prior_orders = _prior_orders(store, date)
         arrivals = _arrival_batches(date, prior_orders)
-        batches = store.get_or_create_inventory_input(date, store_da.load_seed_batches(), arrivals)
-        log("inventory_input", batches=len(batches), arrivals=len(arrivals))
+        batches = store.get_or_create_inventory_input(
+            date,
+            store_da.load_seed_batches(),
+            arrivals,
+            reset_from_seed=reset_from_seed,
+        )
+        log(
+            "inventory_input",
+            batches=len(batches),
+            arrivals=len(arrivals),
+            reset_from_seed=reset_from_seed,
+        )
         consumption = prep_pipe.consume_today(required, batches, date)
         log(
             "consume_today",
@@ -158,7 +173,9 @@ def run_daily_prep(
             "expected_covers": covers,
             "covers_source": covers_source,
             "planning_basis": replen_pipe.PLANNING_BASIS,
-            "inventory_basis": "date_input_output_snapshot",
+            "inventory_basis": (
+                "epoch_seed_snapshot" if reset_from_seed else "date_input_output_snapshot"
+            ),
             "forecast": forecast.to_dict(),
             "forecast_note": note,
             "ingredient_requirements": required,

@@ -2,7 +2,7 @@
 import json
 
 from kitchen_prep import config
-from kitchen_prep.data_access.store import LocalJsonStore
+from kitchen_prep.data_access.store import LocalJsonStore, load_seed_batches
 from kitchen_prep.gemini.client import OfflineClient
 from kitchen_prep.orchestrator import run_daily_prep
 
@@ -63,6 +63,22 @@ def test_pending_delivery_prevents_duplicate_order(tmp_store):
 
     second = run_daily_prep("2026-08-15", store=tmp_store, client=OfflineClient())
     assert all(order["item_id"] != "chicken_wings" for order in second["replenishment_orders"])
+
+
+def test_inventory_epoch_starts_new_chain_without_old_pending_orders(tmp_store, monkeypatch):
+    first = run_daily_prep(config.DEMO_DATE, store=tmp_store, client=OfflineClient())
+    assert first["replenishment_orders"]
+
+    epoch = "2026-08-15"
+    monkeypatch.setenv("KP_INVENTORY_EPOCH", epoch)
+    reset = run_daily_prep(epoch, store=tmp_store, client=OfflineClient())
+    snapshot = _snapshot(tmp_store, epoch)
+
+    assert reset["inventory_basis"] == "epoch_seed_snapshot"
+    assert all(not batch["batch_id"].startswith("delivery-") for batch in snapshot["input_batches"])
+    assert sum(batch["qty"] for batch in snapshot["input_batches"]) == sum(
+        batch["qty"] for batch in load_seed_batches()
+    )
 
 
 def test_force_replays_same_input_and_does_not_double_consume(tmp_store):
