@@ -151,6 +151,21 @@ def test_render_home_explains_the_autonomous_run_with_plan_evidence():
     assert "today_consumption_plus_par" in html
 
 
+def test_render_home_has_judge_focused_hero_and_navigation():
+    html = render_home(_plan(), language="en")
+    assert "/assets/food-hero.webp" in html
+    assert "A complete kitchen plan, before service" in html
+    assert "Autonomous" in html and "Safe quantities" in html and "Auditable" in html
+    assert 'href="#agent-run"' in html
+    assert 'href="#prep-plan"' in html
+    assert 'href="#orders"' in html
+    assert 'href="#forecast"' in html
+    assert 'id="agent-run"' in html
+    assert 'id="prep-plan"' in html
+    assert 'id="orders"' in html
+    assert 'id="forecast"' in html
+
+
 def test_render_home_marks_successful_forecast_validation():
     plan = _plan()
     plan["forecast"]["forecast_source"] = "gemini"

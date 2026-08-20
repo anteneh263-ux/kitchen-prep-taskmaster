@@ -67,12 +67,18 @@ a { color: inherit; }
   text-decoration: none; font-size: .82rem; font-weight: 700; background: white; transition: background .15s, border-color .15s; }
 .language:hover { background: var(--brand-soft); border-color: #98bfa9; }
 
-.hero { position: relative; color: white; background: linear-gradient(135deg, #103724 0%, #1f6a49 100%);
+.hero { position: relative; min-height: 25rem; display: flex; align-items: flex-end; color: white;
+  background: #103724 url('/assets/food-hero.webp') center/cover no-repeat;
   border-radius: 20px; padding: clamp(1.35rem, 4vw, 2.35rem); box-shadow: var(--shadow); overflow: hidden; }
+.hero::before { content: ""; position: absolute; inset: 0; background:
+  linear-gradient(90deg, rgba(7,29,19,.96) 0%, rgba(9,38,25,.86) 38%, rgba(9,38,25,.28) 70%, rgba(9,38,25,.08) 100%); pointer-events: none; }
 .hero::after { content: ""; position: absolute; inset: 0; background:
-  radial-gradient(120% 90% at 100% 0%, #ffffff1f, transparent 60%); pointer-events: none; }
+  linear-gradient(0deg, rgba(3,18,11,.6), transparent 45%); pointer-events: none; }
 .hero-row { position: relative; display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 1rem; flex-wrap: wrap; }
+  gap: 1rem; flex-wrap: wrap; width: 100%; z-index: 1; }
+.hero-copy { max-width: 35rem; }
+.hero-kicker { display: inline-block; margin-top: .7rem; color: #b9e6c6; font-size: .78rem; font-weight: 850;
+  text-transform: uppercase; letter-spacing: .08em; }
 .eyebrow { margin: 0 0 .35rem; opacity: .82; text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 800; }
 h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter-spacing: -.035em; }
 .hero p { margin: .6rem 0 0; color: #d7e8de; font-variant-numeric: tabular-nums; }
@@ -81,6 +87,18 @@ h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter
 .dot { width: .58rem; height: .58rem; border-radius: 50%; background: #6fe295; box-shadow: 0 0 0 4px #6fe29528; }
 .status.degraded { background: #ffb55f1f; border-color: #ffcf9a66; }
 .status.degraded .dot { background: #ffc178; box-shadow: 0 0 0 4px #ffc17826; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.15rem; }
+.hero-link { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem .8rem; border-radius: 999px;
+  color: white; background: #ffffff17; border: 1px solid #ffffff42; text-decoration: none; font-size: .76rem;
+  font-weight: 800; backdrop-filter: blur(8px); transition: background .15s, border-color .15s, transform .15s; }
+.hero-link:hover { background: #ffffff29; border-color: #ffffff70; transform: translateY(-1px); }
+.value-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; margin: 1.1rem 0; }
+.value-card { display: grid; grid-template-columns: auto 1fr; gap: .75rem; align-items: start; padding: 1rem 1.05rem;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.value-icon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .65rem;
+  color: var(--brand); background: var(--brand-soft); font-weight: 900; }
+.value-card strong { display: block; font-size: .85rem; }
+.value-card span:last-child { display: block; margin-top: .12rem; color: var(--muted); font-size: .74rem; }
 
 .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin: 1.1rem 0; }
 .card, .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -155,7 +173,9 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
 .warning-list { margin: 0; padding: .85rem 1.15rem .95rem 2.2rem; color: var(--warn); font-size: .78rem; }
 .warning-list li + li { margin-top: .35rem; }
 .footer { color: var(--muted); text-align: center; font-size: .72rem; margin-top: 1.25rem; }
-@media (max-width: 780px) { .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; }
+@media (max-width: 780px) { .hero { min-height: 29rem; background-position: 62% center; }
+  .hero::before { background: linear-gradient(90deg, rgba(7,29,19,.95), rgba(7,29,19,.72)); }
+  .value-strip { grid-template-columns: 1fr; } .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; }
   .flow-list { grid-template-columns: 1fr; } .flow-step { border-right: 0; border-bottom: 1px solid var(--line); }
   .flow-step:last-child { border-bottom: 0; } }
 @media (max-width: 430px) { .shell { width: min(100% - 1rem, 1080px); } .hero { border-radius: 16px; }
@@ -307,9 +327,22 @@ def render_home(
 <html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kitchen Prep — {escape(plan['date'])}</title><style>{_STYLE}</style></head><body><main class="shell">
 <nav class="topbar">{brand}{switch}</nav>
-<header class="hero"><div class="hero-row"><div><p class="eyebrow">{"Daily operations plan" if en else "Dagens driftsplan"}</p>
-<h1>{"Ready for service" if en else "Klar for service"}</h1><p>{escape(plan['date'])} · {escape(str(plan.get('generated_at', '')))}</p></div>
+<header class="hero"><div class="hero-row"><div class="hero-copy"><p class="eyebrow">{"Daily operations plan" if en else "Dagens driftsplan"}</p>
+<h1>{"A complete kitchen plan, before service" if en else "En komplett kjøkkenplan, før service"}</h1>
+<span class="hero-kicker">{"Ready for service" if en else "Klar for service"}</span>
+<p>{"From demand signals to safe prep and ordering decisions" if en else "Fra etterspørselssignaler til trygge prep- og bestillingsbeslutninger"}<br>{escape(plan['date'])} · {escape(str(plan.get('generated_at', '')))}</p>
+<nav class="hero-actions" aria-label="Quick navigation">
+<a class="hero-link" href="#agent-run">{"Agent run" if en else "Agentkjøring"} ↓</a>
+<a class="hero-link" href="#prep-plan">{"Prep plan" if en else "Prep-plan"} ↓</a>
+<a class="hero-link" href="#orders">{"Orders" if en else "Bestillinger"} ↓</a>
+<a class="hero-link" href="#forecast">{"Forecast" if en else "Prognose"} ↓</a></nav></div>
 <span class="{status_class}"><span class="dot"></span>{escape(status)}</span></div></header>
+
+<section class="value-strip" aria-label="{"Why this matters" if en else "Hvorfor dette betyr noe"}">
+<div class="value-card"><span class="value-icon">↻</span><div><strong>{"Autonomous" if en else "Autonom"}</strong><span>{"Runs before the team arrives" if en else "Kjører før teamet kommer"}</span></div></div>
+<div class="value-card"><span class="value-icon">✓</span><div><strong>{"Safe quantities" if en else "Trygge mengder"}</strong><span>{"Python owns every operational number" if en else "Python eier alle operative tall"}</span></div></div>
+<div class="value-card"><span class="value-icon">◎</span><div><strong>{"Auditable" if en else "Reviderbar"}</strong><span>{"Sources, fallbacks and history stay visible" if en else "Kilder, fallback og historikk er synlig"}</span></div></div>
+</section>
 
 <section class="cards" aria-label="Key metrics">
 <div class="card"><span class="label">{"Expected guests" if en else "Forventede gjester"}</span><span class="value">{escape(str(plan['expected_covers']))}</span></div>
@@ -318,7 +351,7 @@ def render_home(
 <div class="card"><span class="label">{"Orders" if en else "Bestillinger"}</span><span class="value">{len(orders)}</span></div>
 </section>
 
-<section class="panel run-flow" aria-labelledby="run-flow-title"><header class="panel-head">
+<section class="panel run-flow" id="agent-run" aria-labelledby="run-flow-title"><header class="panel-head">
 <h2 id="run-flow-title">{"Autonomous run" if en else "Autonom kjøring"}</h2>
 <p>{"One traceable path from operational inputs to a published plan" if en else "Ett sporbart løp fra driftsdata til publisert plan"}</p>
 </header><ol class="flow-list">{flow_items}</ol></section>
@@ -326,16 +359,16 @@ def render_home(
 <div class="grid"><div class="stack">
 {f'<section class="panel"><header class="panel-head"><h2>{"Plan history" if en else "Planhistorikk"}</h2><p>{"Read-only Firestore plans" if en else "Skrivebeskyttede Firestore-planer"}</p></header><div class="driver-list">{history_block}</div></section>' if history_block else ''}
 <section class="panel"><header class="panel-head"><h2>{"Agent briefing" if en else "Agentbriefing"}</h2><p>{"AI recommendations; arithmetic remains deterministic" if en else "AI-anbefalinger; beregningene er fortsatt deterministiske"}</p></header>{briefing_content}</section>
-<section class="panel"><header class="panel-head"><h2>{"Prioritized prep" if en else "Prioritert prep"}</h2><p>{"What the kitchen should start first" if en else "Det kjøkkenet bør starte med først"}</p></header>{prep_block}</section>
+<section class="panel" id="prep-plan"><header class="panel-head"><h2>{"Prioritized prep" if en else "Prioritert prep"}</h2><p>{"What the kitchen should start first" if en else "Det kjøkkenet bør starte med først"}</p></header>{prep_block}</section>
 <section class="panel"><header class="panel-head"><h2>{"Today’s shortfalls" if en else "Mangler i dag"}</h2><p>{"Required for service, separate from replenishment" if en else "Behov til service, adskilt fra bestilling"}</p></header>{short_block}</section>
-<section class="panel"><header class="panel-head"><h2>{"Replenishment orders" if en else "Bestillinger til par"}</h2><p>{"Calculated from inventory remaining after today’s consumption" if en else "Beregnet fra lager etter dagens forbruk"}</p></header>{order_block}</section>
+<section class="panel" id="orders"><header class="panel-head"><h2>{"Replenishment orders" if en else "Bestillinger til par"}</h2><p>{"Calculated from inventory remaining after today’s consumption" if en else "Beregnet fra lager etter dagens forbruk"}</p></header>{order_block}</section>
 </div><aside class="stack">
 <section class="panel"><header class="panel-head"><h2>{"Run integrity" if en else "Kjøringsintegritet"}</h2><p>{"Model paths and audit status" if en else "Modellbaner og revisjonsstatus"}</p></header>
 <div class="source"><span>{"Forecast" if en else "Prognose"}</span><strong>{escape(str(forecast.get('forecast_source', '')))}</strong></div>
 <div class="source"><span>{"Briefing" if en else "Briefing"}</span><strong>{escape(str(plan.get('briefing_source', '')))}</strong></div>
 <div class="source"><span>{"Inventory" if en else "Lager"}</span><strong>{escape(str(plan.get('inventory_basis', 'seed_inventory')))}</strong></div>
 <div class="source"><span>{"Diagnostic" if en else "Diagnostikk"}</span><strong>{escape(str(forecast_note or '—'))}</strong></div></section>
-<section class="panel"><header class="panel-head"><h2>{"Forecast drivers" if en else "Prognosedrivere"}</h2><p>{"Signals used by the validated demand proposal" if en else "Signaler brukt i validert etterspørselsforslag"}</p></header><div class="driver-list">{driver_block or '<span class="chip">—</span>'}</div>{forecast_rows}</section>
+<section class="panel" id="forecast"><header class="panel-head"><h2>{"Forecast drivers" if en else "Prognosedrivere"}</h2><p>{"Signals used by the validated demand proposal" if en else "Signaler brukt i validert etterspørselsforslag"}</p></header><div class="driver-list">{driver_block or '<span class="chip">—</span>'}</div>{forecast_rows}</section>
 <section class="panel"><header class="panel-head"><h2>{"Expired waste" if en else "Utgått svinn"}</h2><p>{"Removed before FEFO consumption" if en else "Fjernet før FEFO-forbruk"}</p></header>{waste_block}</section>
 </aside></div>
 <footer class="footer">{"Gemini judgment · deterministic arithmetic · Firestore audit trail" if en else "Gemini-vurdering · deterministiske beregninger · Firestore-spor"}</footer>

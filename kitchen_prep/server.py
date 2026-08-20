@@ -11,10 +11,11 @@ deploy/scheduler.md). The run date defaults to today's date in Europe/Oslo.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from .orchestrator import run_daily_prep, today_oslo
@@ -22,6 +23,7 @@ from .data_access import store as store_da
 from .render.html import render_home
 
 app = FastAPI(title="Kitchen Prep Taskmaster")
+_HERO_IMAGE = Path(__file__).parent / "assets" / "food-hero.webp"
 
 
 class RunRequest(BaseModel):
@@ -34,6 +36,11 @@ def home(lang: str = "no") -> HTMLResponse:
     """Mobile-friendly server-rendered view of the latest published plan."""
     plan = store_da.get_store().get_latest_plan()
     return HTMLResponse(content=render_home(plan, language=lang))
+
+
+@app.get("/assets/food-hero.webp", include_in_schema=False)
+def food_hero() -> FileResponse:
+    return FileResponse(_HERO_IMAGE, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/healthz")

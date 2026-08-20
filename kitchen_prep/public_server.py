@@ -6,10 +6,11 @@ cannot trigger a plan run through HTTP.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from .data_access import store as store_da
 from .render.html import render_home
@@ -20,6 +21,7 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+_HERO_IMAGE = Path(__file__).parent / "assets" / "food-hero.webp"
 
 
 def _plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
@@ -44,6 +46,11 @@ def home(lang: str = "en", date: str | None = None) -> HTMLResponse:
     plans = store.list_plans(limit=14)
     plan = store.get_plan(date) if date else (plans[0] if plans else None)
     return HTMLResponse(content=render_home(plan, language=lang, available_plans=plans))
+
+
+@app.get("/assets/food-hero.webp", include_in_schema=False)
+def food_hero() -> FileResponse:
+    return FileResponse(_HERO_IMAGE, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/plans/latest")
