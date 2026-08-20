@@ -94,6 +94,23 @@ def _arrival_batches(run_date: str, orders: list[dict]) -> list[dict]:
     return sorted(arrivals, key=lambda batch: batch["batch_id"])
 
 
+def _epoch_seed_batches(run_date: str) -> list[dict]:
+    """Build fresh synthetic par stock for an explicitly configured epoch."""
+    received = _date.fromisoformat(run_date)
+    batches: list[dict] = []
+    for item_id, meta in menu_da.ingredients_by_id().items():
+        expiry = received + timedelta(days=int(meta["shelf_life_days"]))
+        batches.append(
+            {
+                "batch_id": f"epoch-{run_date}-{item_id}",
+                "item_id": item_id,
+                "qty": meta["par_level"],
+                "expiry_date": expiry.isoformat(),
+            }
+        )
+    return sorted(batches, key=lambda batch: batch["batch_id"])
+
+
 def run_daily_prep(
     date: str | None = None,
     store: store_da.BaseStore | None = None,
@@ -134,9 +151,10 @@ def run_daily_prep(
         reset_from_seed = date == epoch
         prior_orders = _prior_orders(store, date)
         arrivals = _arrival_batches(date, prior_orders)
+        seed_batches = _epoch_seed_batches(date) if reset_from_seed else store_da.load_seed_batches()
         batches = store.get_or_create_inventory_input(
             date,
-            store_da.load_seed_batches(),
+            seed_batches,
             arrivals,
             reset_from_seed=reset_from_seed,
         )

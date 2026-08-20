@@ -2,7 +2,8 @@
 import json
 
 from kitchen_prep import config
-from kitchen_prep.data_access.store import LocalJsonStore, load_seed_batches
+from kitchen_prep.data_access.store import LocalJsonStore
+from kitchen_prep.data_access.menu import ingredients_by_id
 from kitchen_prep.gemini.client import OfflineClient
 from kitchen_prep.orchestrator import run_daily_prep
 
@@ -77,8 +78,10 @@ def test_inventory_epoch_starts_new_chain_without_old_pending_orders(tmp_store, 
     assert reset["inventory_basis"] == "epoch_seed_snapshot"
     assert all(not batch["batch_id"].startswith("delivery-") for batch in snapshot["input_batches"])
     assert sum(batch["qty"] for batch in snapshot["input_batches"]) == sum(
-        batch["qty"] for batch in load_seed_batches()
+        item["par_level"] for item in ingredients_by_id().values()
     )
+    assert all(batch["batch_id"].startswith(f"epoch-{epoch}-") for batch in snapshot["input_batches"])
+    assert not reset["waste_flagged"]
 
 
 def test_force_replays_same_input_and_does_not_double_consume(tmp_store):
