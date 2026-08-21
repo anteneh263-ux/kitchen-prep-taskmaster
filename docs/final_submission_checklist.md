@@ -43,13 +43,13 @@ Do not submit until every unchecked item is complete.
 
 ## Devpost fields
 
-- [ ] Project name and tagline entered.
-- [ ] The Taskmaster selected as the single category.
-- [ ] English project description entered from `docs/devpost_submission.md`.
-- [ ] Hosted viewer URL entered.
-- [ ] Public GitHub URL entered.
-- [ ] Architecture diagram uploaded.
-- [ ] Judge testing instructions entered.
+- [x] Project name and tagline entered.
+- [x] The Taskmaster selected as the single category.
+- [x] English project description entered and production-path wording corrected.
+- [x] Hosted viewer URL entered.
+- [x] Public GitHub URL entered.
+- [x] Architecture diagram uploaded.
+- [x] Judge testing instructions entered and updated for the current dashboard.
 - [x] Public Vimeo demo URL entered: `https://vimeo.com/1219781240`.
 - [ ] Official Rules acceptance box checked only after final review.
 
