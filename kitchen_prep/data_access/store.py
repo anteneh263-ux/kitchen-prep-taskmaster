@@ -24,6 +24,7 @@ class BaseStore:
     def save_plan(self, date: str, plan: dict, *, overwrite: bool = False) -> dict: ...
     def get_latest_plan(self) -> dict | None: ...
     def list_plans(self, limit: int = 14) -> list[dict]: ...
+    def record_plan_action(self, date: str, item_id: str, status: str, occurred_at: str) -> dict | None: ...
     def append_run_log(self, run_id: str, entry: dict) -> None: ...
     def get_or_create_inventory_input(
         self,
@@ -85,6 +86,18 @@ class LocalJsonStore(BaseStore):
             with open(path, encoding="utf-8") as fh:
                 plans.append(json.load(fh))
         return plans
+
+    def record_plan_action(self, date: str, item_id: str, status: str, occurred_at: str) -> dict | None:
+        plan = self.get_plan(date)
+        if plan is None:
+            return None
+        event = {"item_id": item_id, "status": status, "occurred_at": occurred_at}
+        plan.setdefault("operational_actions", {})[item_id] = {
+            "status": status,
+            "updated_at": occurred_at,
+        }
+        plan.setdefault("action_history", []).append(event)
+        return self.save_plan(date, plan, overwrite=True)
 
     def append_run_log(self, run_id: str, entry: dict) -> None:
         with open(self.logs_dir / f"{run_id}.jsonl", "a", encoding="utf-8") as fh:
@@ -177,6 +190,29 @@ class FirestoreStore(BaseStore):  # pragma: no cover - requires cloud credential
             .stream()
         )
         return [doc.to_dict() for doc in query]
+
+    def record_plan_action(self, date: str, item_id: str, status: str, occurred_at: str) -> dict | None:
+        from google.cloud import firestore  # lazy import
+
+        ref = self.db.collection("daily_plans").document(date)
+        transaction = self.db.transaction()
+
+        @firestore.transactional
+        def update(txn):
+            snap = ref.get(transaction=txn)
+            if not snap.exists:
+                return None
+            plan = snap.to_dict()
+            event = {"item_id": item_id, "status": status, "occurred_at": occurred_at}
+            plan.setdefault("operational_actions", {})[item_id] = {
+                "status": status,
+                "updated_at": occurred_at,
+            }
+            plan.setdefault("action_history", []).append(event)
+            txn.set(ref, plan)
+            return plan
+
+        return update(transaction)
 
     def append_run_log(self, run_id: str, entry: dict) -> None:
         self.db.collection("run_logs").document(run_id).collection("steps").add(entry)

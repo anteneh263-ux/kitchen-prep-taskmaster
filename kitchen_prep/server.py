@@ -11,11 +11,12 @@ deploy/scheduler.md). The run date defaults to today's date in Europe/Oslo.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .orchestrator import run_daily_prep, today_oslo
@@ -32,10 +33,12 @@ class RunRequest(BaseModel):
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(lang: str = "no") -> HTMLResponse:
+def home(lang: str = "no", date: str | None = None) -> HTMLResponse:
     """Mobile-friendly server-rendered view of the latest published plan."""
-    plan = store_da.get_store().get_latest_plan()
-    return HTMLResponse(content=render_home(plan, language=lang))
+    store = store_da.get_store()
+    plans = store.list_plans(limit=14)
+    plan = store.get_plan(date) if date else (plans[0] if plans else None)
+    return HTMLResponse(content=render_home(plan, language=lang, available_plans=plans, interactive=True))
 
 
 @app.get("/assets/food-hero.webp", include_in_schema=False)
@@ -72,3 +75,28 @@ def plans_latest() -> dict[str, Any]:
     if plan is None:
         return {"detail": "no plans yet"}
     return plan
+
+
+@app.post("/plans/{date}/actions/{item_id}/{status}")
+def update_plan_action(
+    date: str,
+    item_id: str,
+    status: Literal["approved", "resolved", "reopened"],
+    lang: str = "no",
+) -> RedirectResponse:
+    """Record an authenticated operator decision with an append-only audit event."""
+    store = store_da.get_store()
+    plan = store.get_plan(date)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="plan not found")
+    actionable_items = {
+        str(item.get("item_id"))
+        for key in ("prep_shortfalls", "replenishment_orders")
+        for item in plan.get(key, [])
+        if item.get("item_id")
+    }
+    if item_id not in actionable_items:
+        raise HTTPException(status_code=404, detail="action item not found")
+    occurred_at = datetime.now(timezone.utc).isoformat()
+    store.record_plan_action(date, item_id, status, occurred_at)
+    return RedirectResponse(url=f"/?lang={lang}&date={date}#critical-actions", status_code=303)

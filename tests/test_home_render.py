@@ -187,6 +187,16 @@ def test_render_home_keeps_technical_information_collapsed():
     assert "Ingen prognosedrivere er tilgjengelige fordi reservemodellen ble brukt." in html
 
 
+def test_render_home_only_shows_mutating_controls_in_private_mode():
+    public_html = render_home(_plan(), language="no")
+    private_html = render_home(_plan(), language="no", interactive=True)
+    assert 'method="post"' not in public_html
+    assert "Se bestillingsforslag" in public_html
+    assert 'method="post"' in private_html
+    assert "/actions/beef_patty/approved?lang=no" in private_html
+    assert "Marker som løst" in private_html
+
+
 def test_render_home_marks_successful_forecast_validation():
     plan = _plan()
     plan["forecast"]["forecast_source"] = "gemini"

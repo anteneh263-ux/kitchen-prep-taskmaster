@@ -133,6 +133,7 @@ def run_daily_prep(
         if not force and store.plan_exists(date):
             log("idempotent_hit")
             return store.get_plan(date)
+        existing_plan = store.get_plan(date) if force else None
 
         log("start", date=date)
         covers, covers_source = bookings_da.resolve_expected_covers(date)
@@ -210,6 +211,11 @@ def run_daily_prep(
         plan["briefing"] = briefing
         plan["briefing_source"] = briefing_source
         plan["briefing_markdown"] = md_render.render(plan)
+        # Operator decisions are audit data and survive a forced recalculation.
+        if existing_plan:
+            for key in ("operational_actions", "action_history"):
+                if key in existing_plan:
+                    plan[key] = existing_plan[key]
         log("briefing", source=briefing_source)
 
         saved = store.save_plan(date, plan, overwrite=force)

@@ -59,6 +59,7 @@ def test_public_health_is_ok(empty_client):
     ("method", "path"),
     [
         ("post", "/runs/daily"),
+        ("post", "/plans/2026-08-14/actions/beef_patty/approved"),
         ("get", "/docs"),
         ("get", "/redoc"),
         ("get", "/openapi.json"),

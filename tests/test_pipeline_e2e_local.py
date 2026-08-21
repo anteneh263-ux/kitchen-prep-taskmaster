@@ -44,6 +44,12 @@ def test_idempotent_no_duplicate(tmp_store):
 def test_force_replaces_existing_plan(tmp_store):
     original = run_daily_prep(config.DEMO_DATE, store=tmp_store, client=OfflineClient())
     assert original["forecast"]["forecast_source"] == "deterministic_fallback"
+    tmp_store.record_plan_action(
+        config.DEMO_DATE,
+        "beef_patty",
+        "approved",
+        "2026-08-14T08:00:00+00:00",
+    )
 
     class ValidForecastClient(OfflineClient):
         def propose_forecast(self, context):
@@ -70,5 +76,7 @@ def test_force_replaces_existing_plan(tmp_store):
     )
 
     assert replaced["forecast"]["forecast_source"] == "gemini"
+    assert replaced["operational_actions"]["beef_patty"]["status"] == "approved"
+    assert replaced["action_history"][-1]["status"] == "approved"
     assert tmp_store.get_plan(config.DEMO_DATE)["forecast"]["forecast_source"] == "gemini"
     assert len(list(tmp_store.plans_dir.glob("*.json"))) == 1

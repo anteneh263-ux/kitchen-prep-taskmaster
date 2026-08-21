@@ -111,6 +111,9 @@ def _technical_label(value: str, language: str) -> str:
         "epoch_seed_snapshot": "Fresh inventory epoch" if language == "en" else "Ny lagerepoke",
         "seed_inventory": "Seed inventory" if language == "en" else "Startlager",
         "gemini_ok": "Gemini proposal validated" if language == "en" else "Gemini-forslag validert",
+        "approved": "Approved" if language == "en" else "Godkjent",
+        "resolved": "Resolved" if language == "en" else "Løst",
+        "reopened": "Reopened" if language == "en" else "Gjenåpnet",
     }
     if value in labels:
         return labels[value]
@@ -195,9 +198,16 @@ h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter
   color: white; background: var(--danger); font-weight: 900; }
 .critical-action h2 { margin: 0; font-size: 1.05rem; }
 .critical-action p { margin: .2rem 0 0; font-size: .84rem; }
+.critical-action--approved { color: #67400c; background: #fff9ed; border-color: #e7c889; border-left-color: var(--warn); }
+.critical-action--approved .critical-icon { background: var(--warn); }
+.critical-action--resolved { color: #115c31; background: #f3fbf6; border-color: #b9d8c5; border-left-color: var(--good); }
+.critical-action--resolved .critical-icon { background: var(--good); }
 .action-links { display: flex; flex-wrap: wrap; gap: .45rem; }
+.action-links form { margin: 0; }
+.action-state { display: inline-block; margin-top: .4rem; padding: .2rem .5rem; border-radius: 999px;
+  color: var(--brand); background: var(--brand-soft); font-size: .68rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }
 .button { display: inline-flex; align-items: center; justify-content: center; min-height: 2.35rem; padding: .55rem .85rem;
-  border-radius: .65rem; color: white; background: var(--brand); text-decoration: none; font-size: .76rem; font-weight: 800; }
+  border: 0; border-radius: .65rem; color: white; background: var(--brand); text-decoration: none; font: inherit; font-size: .76rem; font-weight: 800; cursor: pointer; }
 .button:hover { background: var(--brand-2); }
 .button--secondary { color: var(--brand); background: white; border: 1px solid #b5cec0; }
 .button--secondary:hover { background: var(--brand-soft); }
@@ -316,6 +326,8 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
   .row:hover, tbody tr:hover td { background: #1b2a21; }
   .card--alert { border-color: #5a2f2f; } .card--alert .value { color: #f0a1a1; }
   .critical-action { color: #ffd1d1; background: #2d1c1c; border-color: #673636; }
+  .critical-action--approved { color: #ffe0a6; background: #302719; border-color: #675432; }
+  .critical-action--resolved { color: #b9f0cc; background: #17291e; border-color: #315a40; }
   .alert .rank, .action-badge { background: #3a2f1f; } .danger .rank { background: #3a2323; } }
 """.strip()
 
@@ -328,6 +340,7 @@ def render_home(
     plan: dict | None,
     language: str = "no",
     available_plans: list[dict] | None = None,
+    interactive: bool = False,
 ) -> str:
     language = "en" if language == "en" else "no"
     en = language == "en"
@@ -482,6 +495,12 @@ def render_home(
             f'{(" aria-current=\"page\"" if selected else "")}>{escape(label)}</a>'
         )
     history_block = "".join(history_items)
+    action_history_rows = "".join(
+        f'<li class="row"><span class="rank">✓</span><div><div class="name">{escape(_item_name(str(event.get("item_id", "")), language))}</div>'
+        f'<div class="sub"><time datetime="{escape(str(event.get("occurred_at", "")))}">{escape(_display_timestamp(str(event.get("occurred_at", "")), language))}</time></div></div>'
+        f'<span class="qty">{escape(_technical_label(str(event.get("status", "")), language))}</span></li>'
+        for event in reversed(plan.get("action_history", []))
+    )
     short_card_class = "card card--alert" if shortfalls else "card"
     plan_date = _display_date(str(plan.get("date", "")), language)
     status_explanation = (
@@ -491,11 +510,36 @@ def render_home(
     if shortfalls:
         critical = shortfalls[0]
         critical_item = _item_name(str(critical.get("item_id", "")), language)
+        critical_item_id = str(critical.get("item_id", ""))
         critical_qty = _number(critical.get("shortfall", 0))
-        critical_block = f'''<section class="critical-action" id="critical-actions" aria-labelledby="critical-title">
-<span class="critical-icon">!</span><div><h2 id="critical-title">{"Action required" if en else "Handling kreves"}: {"Source" if en else "Skaff"} {escape(critical_qty)} {"pcs" if en else "stk"} {escape(critical_item)}</h2>
-<p>{"Resolve before service. Review the calculated order and approval recommendation." if en else "Må løses før service. Kontroller bestillingsforslaget og anbefalingen før godkjenning."}</p></div>
-<div class="action-links"><a class="button" href="#orders">{"Review order" if en else "Se bestillingsforslag"}</a><a class="button button--secondary" href="#approval">{"Review approval" if en else "Se godkjenning"}</a></div></section>'''
+        action_status = str(plan.get("operational_actions", {}).get(critical_item_id, {}).get("status", "pending"))
+        status_labels = {
+            "pending": "Pending" if en else "Venter",
+            "approved": "Approved" if en else "Godkjent",
+            "resolved": "Resolved" if en else "Løst",
+            "reopened": "Reopened" if en else "Gjenåpnet",
+        }
+        action_state = status_labels.get(action_status, _human_id(action_status))
+        critical_class = "critical-action"
+        critical_icon = "!"
+        if action_status == "approved":
+            critical_class += " critical-action--approved"
+        elif action_status == "resolved":
+            critical_class += " critical-action--resolved"
+            critical_icon = "✓"
+        if interactive:
+            if action_status == "resolved":
+                action_controls = f'''<form method="post" action="/plans/{escape(str(plan.get('date', '')))}/actions/{escape(critical_item_id)}/reopened?lang={language}"><button class="button button--secondary" type="submit">{"Reopen" if en else "Gjenåpne"}</button></form>'''
+            else:
+                action_controls = f'''<form method="post" action="/plans/{escape(str(plan.get('date', '')))}/actions/{escape(critical_item_id)}/approved?lang={language}"><button class="button" type="submit">{"Approve" if en else "Godkjenn"}</button></form>
+<form method="post" action="/plans/{escape(str(plan.get('date', '')))}/actions/{escape(critical_item_id)}/resolved?lang={language}"><button class="button button--secondary" type="submit">{"Mark resolved" if en else "Marker som løst"}</button></form>'''
+        else:
+            action_controls = f'<a class="button" href="#orders">{"Review order" if en else "Se bestillingsforslag"}</a><a class="button button--secondary" href="#approval">{"Review approval" if en else "Se godkjenning"}</a>'
+        critical_heading = (("Resolved" if en else "Markert som løst") if action_status == "resolved" else ("Action required" if en else "Handling kreves"))
+        critical_block = f'''<section class="{critical_class}" id="critical-actions" aria-labelledby="critical-title">
+<span class="critical-icon">{critical_icon}</span><div><h2 id="critical-title">{critical_heading}: {"Source" if en and action_status != "resolved" else "Skaff" if not en and action_status != "resolved" else ""} {escape(critical_qty)} {"pcs" if en else "stk"} {escape(critical_item)}</h2>
+<p>{"Resolve before service. Review the calculated order and approval recommendation." if en else "Må løses før service. Kontroller bestillingsforslaget og anbefalingen før godkjenning."}</p><span class="action-state">{"Status" if en else "Status"}: {escape(action_state)}</span></div>
+<div class="action-links">{action_controls}</div></section>'''
     else:
         critical_block = f'''<section class="critical-action" id="critical-actions" style="border-left-color:var(--good);border-color:#b9d8c5;background:#f3fbf6;color:var(--ink)">
 <span class="critical-icon" style="background:var(--good)">✓</span><div><h2>{"No critical actions" if en else "Ingen kritiske handlinger"}</h2><p>{"The plan is ready for service." if en else "Planen er klar for service."}</p></div></section>'''
@@ -545,6 +589,7 @@ def render_home(
 <div class="source"><span>{"Briefing source" if en else "Briefingkilde"}</span><strong title="{escape(briefing_source)}">{escape(briefing_label)}</strong></div>
 <div class="source"><span>{"Inventory basis" if en else "Lagergrunnlag"}</span><strong title="{escape(str(plan.get('inventory_basis', 'seed_inventory')))}">{escape(_technical_label(str(plan.get('inventory_basis', 'seed_inventory')), language))}</strong></div>
 <div class="source"><span>{"Diagnostic" if en else "Diagnostikk"}</span><strong title="{escape(str(forecast_note or '—'))}">{escape(_technical_label(str(forecast_note or '—'), language))}</strong></div></section>
+{f'<section class="panel"><header class="panel-head"><h2>{"Action history" if en else "Handlingshistorikk"}</h2><p>{"Recorded operator decisions" if en else "Registrerte operatørbeslutninger"}</p></header><ul class="rows">{action_history_rows}</ul></section>' if action_history_rows else ''}
 </div></div></div></details>
 <footer class="footer">{"Operational plan with a complete audit trail" if en else "Operativ plan med fullstendig revisjonsspor"}</footer>
 </main></body></html>"""
