@@ -31,14 +31,14 @@ Do not submit until every unchecked item is complete.
 
 ## Production verification
 
-- [x] Private worker revision `kitchen-prep-taskmaster-web-00010-q5j` serves 100%.
-- [x] Public viewer revision `kitchen-prep-viewer-00008-n2v` serves 100%.
+- [x] Private worker revision `kitchen-prep-taskmaster-web-00011-vlp` serves 100%.
+- [x] Public viewer revision `kitchen-prep-viewer-00010-xlk` serves 100%.
 - [x] Scheduler `kitchen-prep-daily` is enabled for 07:00 Europe/Oslo.
 - [x] Production run reports `forecast_source: gemini` and `gemini_ok`.
 - [x] Production run reports `briefing_source: gemini`.
 - [x] Forced replay preserves identical FEFO consumption and remaining stock.
 - [x] Public viewer mutation route and API docs return 404.
-- [x] Offline suite: 128 passed; live-key integration path separately verified in
+- [x] Offline suite: 136 passed, 1 skipped; live-key integration path separately verified in
       production.
 
 ## Devpost fields
@@ -50,13 +50,13 @@ Do not submit until every unchecked item is complete.
 - [ ] Public GitHub URL entered.
 - [ ] Architecture diagram uploaded.
 - [ ] Judge testing instructions entered.
-- [ ] Public YouTube or Vimeo demo URL entered.
+- [x] Public Vimeo demo URL entered: `https://vimeo.com/1219781240`.
 - [ ] Official Rules acceptance box checked only after final review.
 
 ## Mandatory video
 
-- [x] Final local master duration is 3:54, under 4:00.
-- [ ] Video is public, not private or unlisted.
+- [x] Public Vimeo duration is 3:58.9, under 4:00.
+- [x] Video is public and plays without project credentials.
 - [x] English narration is synchronized scene by scene.
 - [x] Problem and value proposition shown in the first 30 seconds.
 - [x] Autonomous production flow and verified execution result shown without a

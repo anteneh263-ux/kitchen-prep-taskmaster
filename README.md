@@ -12,7 +12,7 @@ Scheduler and Firestore.
 
 | | |
 | --- | --- |
-| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00010-q5j` in `europe-north1` (private, authenticated) |
+| **Cloud Run worker** | `kitchen-prep-taskmaster-web-00011-vlp` in `europe-north1` (private, authenticated) |
 | **Hosted judge URL** | https://kitchen-prep-viewer-373405758807.europe-north1.run.app |
 | **Demo Video** | TO BE ADDED |
 | **GitHub Repository** | https://github.com/anteneh263-ux/kitchen-prep-taskmaster |
@@ -299,7 +299,7 @@ none of these.**
 pytest -m "not integration"
 ```
 
-**Result: 128 passed, 1 deselected** — no network, no API key, no cloud
+**Result: 136 passed, 1 skipped** — no network, no API key, no cloud
 resources required.
 
 ```bash
@@ -355,7 +355,7 @@ Google Cloud Run in `europe-north1`. The reproducible commands live in
 
 Verified production state on 2026-08-20:
 
-- private worker revision `kitchen-prep-taskmaster-web-00010-q5j`, serving 100%
+- private worker revision `kitchen-prep-taskmaster-web-00011-vlp`, serving 100%
   of traffic;
 - Firestore persistence enabled with `KP_STORE=firestore`;
 - Secret Manager injects `GOOGLE_API_KEY` at runtime;
@@ -365,7 +365,7 @@ Verified production state on 2026-08-20:
   `forecast_note: gemini_ok`, and `briefing_source: gemini`.
 
 The worker remains private. A separate public, read-only judge viewer runs as
-`kitchen-prep-viewer-00008-n2v` with only Firestore viewer permission. It
+`kitchen-prep-viewer-00010-xlk` with only Firestore viewer permission. It
 receives no Gemini secret, and `/runs/daily`, `/docs`, `/redoc` and
 `/openapi.json` all return 404.
 
@@ -613,7 +613,7 @@ system produces identical output on any machine, offline.
 ## Demo
 
 - **Cloud Run worker:** deployed privately; revision
-  `kitchen-prep-taskmaster-web-00010-q5j`
+  `kitchen-prep-taskmaster-web-00011-vlp`
 - **Judge-facing viewer:**
   https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 - **Demo Video:** TO BE ADDED

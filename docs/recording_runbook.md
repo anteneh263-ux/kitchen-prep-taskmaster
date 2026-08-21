@@ -78,7 +78,7 @@ Prepare this output before recording, or run it if timing permits:
 pytest -q
 ```
 
-Expected offline result: `128 passed, 1 skipped`. The skipped test is the
+Expected offline result: `136 passed, 1 skipped`. The skipped test is the
 credentialed integration test; the live production execution is the evidence for
 that path.
 

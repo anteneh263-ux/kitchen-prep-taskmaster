@@ -182,9 +182,9 @@ quantity again.
 ## Production evidence
 
 - Private worker: `kitchen-prep-taskmaster-web`, region `europe-north1`, current
-  revision `kitchen-prep-taskmaster-web-00010-q5j`.
+  revision `kitchen-prep-taskmaster-web-00011-vlp`.
 - Public read-only viewer: `kitchen-prep-viewer`, current revision
-  `kitchen-prep-viewer-00008-n2v`.
+  `kitchen-prep-viewer-00010-xlk`.
 - Cloud Scheduler: `kitchen-prep-daily`, enabled at `0 7 * * *`, timezone
   `Europe/Oslo`.
 - Verified production run: `forecast_source: gemini`,
@@ -192,7 +192,7 @@ quantity again.
 - Verified replay-safe snapshots and controlled production migration; the
   current plan records `inventory_basis: epoch_seed_snapshot`, while ordinary
   subsequent dates return to `date_input_output_snapshot`.
-- Offline test suite: 128 passed, 1 integration test skipped without a live key.
+- Offline test suite: 136 passed, 1 integration test skipped without a live key.
 
 ## Links
 
