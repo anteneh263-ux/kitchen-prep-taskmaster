@@ -57,15 +57,15 @@ def test_render_home_contains_all_sections():
     assert "80" in html
     assert "deterministic_fallback" in html
     assert "2026-08-11T07:00:00+02:00" in html
-    assert "DEGRADERT" in html  # run status reflects fallback
-    assert "Klar for service" in html
+    assert "KLAR MED BEGRENSNINGER" in html
+    assert "Prognosemodellen er utilgjengelig" in html
     assert "Classic Cheeseburger" in html  # human name, not only machine id
     # Prep
     assert "bbq_ribs" in html
     # Shortfalls
-    assert "Mangler i dag" in html and "Beef Patty" in html
+    assert "Mangler før service" in html and "Burgerkjøtt" in html
     # Orders
-    assert "Bestillinger" in html and "Burger Bun" in html and "BakeryCo" in html
+    assert "Bestillinger" in html and "Hamburgerbrød" in html and "BakeryCo" in html
     # Waste
     assert "svinn" in html.lower() and "b06" in html
 
@@ -75,8 +75,8 @@ def test_render_home_status_ok_when_no_fallback():
     plan["forecast"]["forecast_source"] = "gemini"
     plan["briefing_source"] = "gemini"
     html = render_home(plan)
-    assert "OPERATIV" in html
-    assert "DEGRADERT" not in html
+    assert "KLAR" in html
+    assert "KLAR MED BEGRENSNINGER" not in html
 
 
 def test_render_home_handles_no_plan():
@@ -88,14 +88,14 @@ def test_render_home_handles_no_plan():
 def test_render_home_supports_english():
     html = render_home(_plan(), language="en")
     assert '<html lang="en">' in html
-    assert "Ready for service" in html
+    assert "READY WITH LIMITATIONS" in html
     assert "Expected guests" in html
     assert "Forecast" in html
     assert "date_input_output_snapshot" in html
-    assert "DEGRADED" in html
-    assert "Today’s shortfalls" in html
-    assert "Replenishment orders" in html
-    assert "Expired waste" in html
+    assert "Forecast model unavailable" in html
+    assert "Service shortfalls" in html
+    assert "Order proposals" in html
+    assert "Waste requiring attention" in html
     assert 'href="?lang=no"' in html
 
 
@@ -131,18 +131,18 @@ def test_render_home_shows_read_only_plan_history():
 
 def test_render_home_exposes_agent_briefing_and_human_approval_boundary():
     html = render_home(_plan(), language="en")
-    assert "Agent briefing" in html
-    assert "AI recommendations; arithmetic remains deterministic" in html
+    assert "Approval and recommendations" in html
+    assert "Review before taking external action" in html
     assert "80 guests expected. One shortfall needs attention." in html
     assert "Source 31 patties before service." in html
-    assert "Human approval required" in html
+    assert "Approval required" in html
     assert "Discard expired batch b06." in html
 
 
 def test_render_home_explains_the_autonomous_run_with_plan_evidence():
     html = render_home(_plan(), language="en")
     assert "Autonomous run" in html
-    assert "One traceable path from operational inputs to a published plan" in html
+    assert "Trace from operational inputs to the published plan" in html
     assert "bookings_csv" in html
     assert "deterministic_fallback" in html
     assert "Fallback activated" in html
@@ -154,9 +154,13 @@ def test_render_home_explains_the_autonomous_run_with_plan_evidence():
 def test_render_home_has_judge_focused_hero_and_navigation():
     html = render_home(_plan(), language="en")
     assert "/assets/food-hero.webp" in html
-    assert "A complete kitchen plan, before service" in html
-    assert "Autonomous" in html and "Safe quantities" in html and "Auditable" in html
-    assert 'href="#agent-run"' in html
+    assert "Today’s kitchen plan" in html
+    assert "Action required: Source 31 pcs Beef Patty" in html
+    assert "Review order" in html and "Review approval" in html
+    assert "11 Aug 2026 · 07:00" in html
+    assert 'datetime="2026-08-11T07:00:00+02:00"' in html
+    assert 'href="#critical-actions"' in html
+    assert 'href="#traceability"' in html
     assert 'href="#prep-plan"' in html
     assert 'href="#orders"' in html
     assert 'href="#forecast"' in html
@@ -164,6 +168,23 @@ def test_render_home_has_judge_focused_hero_and_navigation():
     assert 'id="prep-plan"' in html
     assert 'id="orders"' in html
     assert 'id="forecast"' in html
+
+
+def test_render_home_uses_natural_operational_numbers_and_dates():
+    html = render_home(_plan(), language="no")
+    assert "Behov: 71 stk" in html
+    assert "Mangler 31 stk" in html
+    assert "1 t 16 min" in html
+    assert "71.0" not in html
+    assert "−31.0" not in html
+    assert '<time datetime="2026-08-13">13 aug.</time>' in html
+
+
+def test_render_home_keeps_technical_information_collapsed():
+    html = render_home(_plan(), language="no")
+    assert '<details class="trace-details" id="traceability">' in html
+    assert "Sporbarhet og tekniske detaljer" in html
+    assert "Ingen prognosedrivere er tilgjengelige fordi reservemodellen ble brukt." in html
 
 
 def test_render_home_marks_successful_forecast_validation():
@@ -182,7 +203,7 @@ def test_render_home_escapes_agent_briefing_content():
     plan = _plan()
     plan["briefing"]["summary"] = '<script>alert("x")</script>'
     plan["briefing"]["shortfall_actions"][0]["recommended_action"] = "<b>unsafe</b>"
-    html = render_home(plan)
+    html = render_home(plan, language="en")
     assert "<script>" not in html
     assert "<b>unsafe</b>" not in html
     assert "&lt;script&gt;" in html

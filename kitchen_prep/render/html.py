@@ -1,6 +1,7 @@
 """Server-rendered bilingual dashboard for the latest kitchen plan."""
 from __future__ import annotations
 
+from datetime import datetime
 from html import escape
 
 from ..data_access import menu as menu_da
@@ -10,8 +11,8 @@ def _run_status(plan: dict, language: str) -> tuple[str, bool]:
     sources = {plan["forecast"]["forecast_source"], plan.get("briefing_source", "")}
     degraded = "deterministic_fallback" in sources
     if degraded:
-        return ("DEGRADED" if language == "en" else "DEGRADERT"), True
-    return "OPERATIONAL" if language == "en" else "OPERATIV", False
+        return ("READY WITH LIMITATIONS" if language == "en" else "KLAR MED BEGRENSNINGER"), True
+    return ("READY" if language == "en" else "KLAR"), False
 
 
 def _human_id(value: str) -> str:
@@ -22,7 +23,14 @@ def _dish_name(dish_id: str) -> str:
     return str(menu_da.menu_by_id().get(dish_id, {}).get("name") or _human_id(dish_id))
 
 
-def _item_name(item_id: str) -> str:
+def _item_name(item_id: str, language: str = "en") -> str:
+    norwegian = {
+        "beef_patty": "Burgerkjøtt",
+        "burger_bun": "Hamburgerbrød",
+        "pork_ribs": "Svineribbe",
+    }
+    if language == "no" and item_id in norwegian:
+        return norwegian[item_id]
     return _human_id(item_id)
 
 
@@ -32,10 +40,84 @@ def _unit(unit: str, language: str) -> str:
     return unit
 
 
+def _number(value: object) -> str:
+    """Render operational quantities without machine-like trailing zeroes."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return str(int(number)) if number.is_integer() else f"{number:g}"
+
+
+def _duration(minutes: object, language: str) -> str:
+    try:
+        total = round(float(minutes))
+    except (TypeError, ValueError):
+        return str(minutes)
+    if total < 60:
+        return f"{total} min"
+    hours, remainder = divmod(total, 60)
+    if language == "en":
+        return f"{hours} hr {remainder} min" if remainder else f"{hours} hr"
+    return f"{hours} t {remainder} min" if remainder else f"{hours} t"
+
+
 def _reasoning_text(reasoning: str, language: str, fallback: bool) -> str:
     if language == "no" and fallback:
         return "Deterministisk baseline basert på de siste tilsvarende ukedagene, normalisert per gjest."
     return reasoning
+
+
+def _display_timestamp(value: str, language: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return value
+    months = (
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        if language == "en"
+        else ["jan.", "feb.", "mars", "apr.", "mai", "juni", "juli", "aug.", "sep.", "okt.", "nov.", "des."]
+    )
+    return f"{parsed.day} {months[parsed.month - 1]} {parsed.year} · {parsed:%H:%M}"
+
+
+def _display_date(value: str, language: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return value
+    months = (
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        if language == "en"
+        else ["jan.", "feb.", "mars", "apr.", "mai", "juni", "juli", "aug.", "sep.", "okt.", "nov.", "des."]
+    )
+    return f"{parsed.day} {months[parsed.month - 1]}"
+
+
+def _source_label(value: str, language: str) -> str:
+    labels = {
+        "gemini": "Gemini",
+        "deterministic_fallback": "Deterministic fallback" if language == "en" else "Deterministisk fallback",
+    }
+    return labels.get(value, _human_id(value))
+
+
+def _technical_label(value: str, language: str) -> str:
+    labels = {
+        "bookings_csv": "Bookings file" if language == "en" else "Bookingfil",
+        "expected_covers": "Expected covers" if language == "en" else "Forventet belegg",
+        "today_consumption_plus_par": "Consumption + par level" if language == "en" else "Forbruk + par-nivå",
+        "date_input_output_snapshot": "Daily snapshot chain" if language == "en" else "Daglig snapshot-kjede",
+        "epoch_seed_snapshot": "Fresh inventory epoch" if language == "en" else "Ny lagerepoke",
+        "seed_inventory": "Seed inventory" if language == "en" else "Startlager",
+        "gemini_ok": "Gemini proposal validated" if language == "en" else "Gemini-forslag validert",
+    }
+    if value in labels:
+        return labels[value]
+    if value.startswith("fallback:"):
+        reason = value.split(":", 2)[1].replace("_", " ")
+        return f'{"Fallback" if language == "en" else "Fallback"} · {reason.capitalize()}'
+    return _human_id(value)
 
 
 _STYLE = """
@@ -67,7 +149,7 @@ a { color: inherit; }
   text-decoration: none; font-size: .82rem; font-weight: 700; background: white; transition: background .15s, border-color .15s; }
 .language:hover { background: var(--brand-soft); border-color: #98bfa9; }
 
-.hero { position: relative; min-height: 25rem; display: flex; align-items: flex-end; color: white;
+.hero { position: relative; min-height: 21rem; display: flex; align-items: flex-end; color: white;
   background: #103724 url('/assets/food-hero.webp') center/cover no-repeat;
   border-radius: 20px; padding: clamp(1.35rem, 4vw, 2.35rem); box-shadow: var(--shadow); overflow: hidden; }
 .hero::before { content: ""; position: absolute; inset: 0; background:
@@ -76,22 +158,17 @@ a { color: inherit; }
   linear-gradient(0deg, rgba(3,18,11,.6), transparent 45%); pointer-events: none; }
 .hero-row { position: relative; display: flex; justify-content: space-between; align-items: flex-start;
   gap: 1rem; flex-wrap: wrap; width: 100%; z-index: 1; }
-.hero-copy { max-width: 35rem; }
+.hero-copy { max-width: 34rem; padding-top: 2.5rem; }
 .hero-kicker { display: inline-block; margin-top: .7rem; color: #b9e6c6; font-size: .78rem; font-weight: 850;
   text-transform: uppercase; letter-spacing: .08em; }
 .eyebrow { margin: 0 0 .35rem; opacity: .82; text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 800; }
 h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter-spacing: -.035em; }
 .hero p { margin: .6rem 0 0; color: #d7e8de; font-variant-numeric: tabular-nums; }
-.status { display: inline-flex; align-items: center; gap: .5rem; border-radius: 999px; padding: .5rem .85rem;
+.status { position: absolute; right: 0; top: 0; display: inline-flex; align-items: center; gap: .5rem; border-radius: 999px; padding: .5rem .85rem;
   background: #ffffff1c; border: 1px solid #ffffff45; font-size: .76rem; font-weight: 800; letter-spacing: .05em; }
 .dot { width: .58rem; height: .58rem; border-radius: 50%; background: #6fe295; box-shadow: 0 0 0 4px #6fe29528; }
 .status.degraded { background: #ffb55f1f; border-color: #ffcf9a66; }
 .status.degraded .dot { background: #ffc178; box-shadow: 0 0 0 4px #ffc17826; }
-.hero-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.15rem; }
-.hero-link { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem .8rem; border-radius: 999px;
-  color: white; background: #ffffff17; border: 1px solid #ffffff42; text-decoration: none; font-size: .76rem;
-  font-weight: 800; backdrop-filter: blur(8px); transition: background .15s, border-color .15s, transform .15s; }
-.hero-link:hover { background: #ffffff29; border-color: #ffffff70; transform: translateY(-1px); }
 .value-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; margin: 1.1rem 0; }
 .value-card { display: grid; grid-template-columns: auto 1fr; gap: .75rem; align-items: start; padding: 1rem 1.05rem;
   background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
@@ -99,6 +176,37 @@ h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.08; letter
   color: var(--brand); background: var(--brand-soft); font-weight: 900; }
 .value-card strong { display: block; font-size: .85rem; }
 .value-card span:last-child { display: block; margin-top: .12rem; color: var(--muted); font-size: .74rem; }
+.section-nav { position: sticky; top: .6rem; z-index: 10; display: flex; gap: .45rem; margin: 1rem 0;
+  padding: .45rem; overflow-x: auto; background: color-mix(in srgb, var(--paper) 92%, transparent);
+  border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow-sm); backdrop-filter: blur(14px); }
+.section-link { flex: 1 0 auto; padding: .5rem .75rem; border-radius: 999px; color: var(--muted);
+  text-align: center; text-decoration: none; font-size: .74rem; font-weight: 800; transition: color .15s, background .15s; }
+.section-link:hover { color: var(--brand); background: var(--brand-soft); }
+.service-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin: 1.1rem 0; }
+.summary-card { padding: 1rem 1.05rem; background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.summary-card .label { display: block; color: var(--muted); font-size: .68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .07em; }
+.summary-card strong { display: block; margin-top: .2rem; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.critical-action { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem;
+  margin: 1rem 0; padding: 1.1rem 1.2rem; color: #651c1c; background: #fff6f6;
+  border: 1px solid #e5b3b3; border-left: 5px solid var(--danger); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.critical-icon { display: grid; place-items: center; width: 2.35rem; height: 2.35rem; border-radius: 50%;
+  color: white; background: var(--danger); font-weight: 900; }
+.critical-action h2 { margin: 0; font-size: 1.05rem; }
+.critical-action p { margin: .2rem 0 0; font-size: .84rem; }
+.action-links { display: flex; flex-wrap: wrap; gap: .45rem; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 2.35rem; padding: .55rem .85rem;
+  border-radius: .65rem; color: white; background: var(--brand); text-decoration: none; font-size: .76rem; font-weight: 800; }
+.button:hover { background: var(--brand-2); }
+.button--secondary { color: var(--brand); background: white; border: 1px solid #b5cec0; }
+.button--secondary:hover { background: var(--brand-soft); }
+.trace-details { margin-top: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow-sm); }
+.trace-details > summary { cursor: pointer; list-style: none; padding: 1rem 1.15rem; font-size: .88rem; font-weight: 850; }
+.trace-details > summary::-webkit-details-marker { display: none; }
+.trace-details > summary::after { content: "+"; float: right; color: var(--brand); font-size: 1.15rem; }
+.trace-details[open] > summary::after { content: "−"; }
+.trace-content { padding: 0 1rem 1rem; }
 
 .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin: 1.1rem 0; }
 .card, .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -168,19 +276,38 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
 .reason { color: var(--muted); font-size: .76rem; margin-top: .2rem; }
 .confidence { color: var(--brand); font-size: .68rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; margin-top: .12rem; }
 .briefing-summary { margin: 0; padding: 1rem 1.15rem; border-bottom: 1px solid var(--line); }
+.priority-panel { display: grid; grid-template-columns: 1fr 1.35fr; margin: 1.1rem 0; }
+.priority-lead { padding: 1.25rem; background: linear-gradient(145deg, var(--brand-soft), transparent); }
+.priority-lead .eyebrow { color: var(--brand); opacity: 1; }
+.priority-lead h2 { margin: 0; font-size: 1.3rem; letter-spacing: -.025em; }
+.priority-lead p { margin: .5rem 0 0; color: var(--muted); font-size: .82rem; }
+.priority-items { display: grid; grid-template-columns: repeat(3, 1fr); border-left: 1px solid var(--line); }
+.priority-item { min-width: 0; padding: 1.15rem 1rem; border-right: 1px solid var(--line); }
+.priority-item:last-child { border-right: 0; }
+.priority-item .rank { margin-bottom: .6rem; }
+.priority-item .name { font-size: .82rem; }
+.priority-item .qty { display: block; margin-top: .3rem; color: var(--brand); font-size: 1.05rem; }
 .action-badge { display: inline-block; margin-top: .35rem; border-radius: 999px; padding: .2rem .5rem;
   color: var(--warn); background: #f7ecdd; font-size: .65rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }
 .warning-list { margin: 0; padding: .85rem 1.15rem .95rem 2.2rem; color: var(--warn); font-size: .78rem; }
 .warning-list li + li { margin-top: .35rem; }
 .footer { color: var(--muted); text-align: center; font-size: .72rem; margin-top: 1.25rem; }
-@media (max-width: 780px) { .hero { min-height: 29rem; background-position: 62% center; }
+@media (max-width: 780px) { .hero { min-height: 25rem; background-position: 62% center; }
   .hero::before { background: linear-gradient(90deg, rgba(7,29,19,.95), rgba(7,29,19,.72)); }
-  .value-strip { grid-template-columns: 1fr; } .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; }
+  .status { position: static; margin-top: 1rem; } .hero-copy { padding-top: 0; }
+  .value-strip, .service-summary { grid-template-columns: repeat(2, 1fr); } .priority-panel { grid-template-columns: 1fr; }
+  .critical-action { grid-template-columns: auto 1fr; } .action-links { grid-column: 1 / -1; }
+  .priority-items { border-left: 0; border-top: 1px solid var(--line); }
+  .cards { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; }
   .flow-list { grid-template-columns: 1fr; } .flow-step { border-right: 0; border-bottom: 1px solid var(--line); }
   .flow-step:last-child { border-bottom: 0; } }
 @media (max-width: 430px) { .shell { width: min(100% - 1rem, 1080px); } .hero { border-radius: 16px; }
+  .service-summary { grid-template-columns: 1fr 1fr; }
   .cards { gap: .55rem; } .card { padding: .85rem .9rem; } .card .value { font-size: 1.5rem; }
-  .row { padding: .74rem .9rem; } }
+  .priority-items { grid-template-columns: 1fr; } .priority-item { display: grid; grid-template-columns: auto 1fr auto;
+    gap: .7rem; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); }
+  .priority-item:last-child { border-bottom: 0; } .priority-item .rank { margin: 0; }
+  .priority-item .qty { margin: 0; } .row { padding: .74rem .9rem; } }
 @media (prefers-color-scheme: dark) { :root { color-scheme: dark; --ink: #e9f0eb; --muted: #a4b3ab;
   --line: #2f4239; --paper: #16221b; --canvas: #0e150f; --brand-soft: #21402f; --brand: #6fbf93;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.4); --shadow: 0 10px 34px rgba(0,0,0,.5); }
@@ -188,6 +315,7 @@ a.chip[aria-current="page"] { background: var(--brand); color: #fff; }
   .chip { background: #243228; color: #c4d0c8; } a.chip:hover { background: #2c4a38; }
   .row:hover, tbody tr:hover td { background: #1b2a21; }
   .card--alert { border-color: #5a2f2f; } .card--alert .value { color: #f0a1a1; }
+  .critical-action { color: #ffd1d1; background: #2d1c1c; border-color: #673636; }
   .alert .rank, .action-badge { background: #3a2f1f; } .danger .rank { background: #3a2323; } }
 """.strip()
 
@@ -225,25 +353,26 @@ def render_home(
 
     prep_rows = "".join(
         f'<li class="row"><span class="rank">{task["priority"]}</span><div><div class="name">{escape(_dish_name(task["dish_id"]))}</div>'
-        f'<div class="sub">{escape(str(task["prep_minutes"]))} min · {escape(task["dish_id"])}</div></div>'
-        f'<span class="qty">{escape(str(task["qty"]))} {"pcs" if en else "stk"}</span></li>'
+        f'<div class="sub" title="ID: {escape(task["dish_id"])}">{escape(_duration(task["prep_minutes"], language))}</div></div>'
+        f'<span class="qty">{escape(_number(task["qty"]))} {"pcs" if en else "stk"}</span></li>'
         for task in prep
     )
     prep_block = f'<ul class="rows">{prep_rows}</ul>' if prep else _empty("No prep tasks." if en else "Ingen prep-oppgaver.")
 
     short_rows = "".join(
-        f'<li class="row alert"><span class="rank">!</span><div><div class="name">{escape(_item_name(item["item_id"]))}</div>'
-        f'<div class="sub">{("Available" if en else "Tilgjengelig")}: {escape(str(item["available"]))} · '
-        f'{("Required" if en else "Behov")}: {escape(str(item["required"]))}</div></div>'
-        f'<span class="qty">−{escape(str(item["shortfall"]))}</span></li>'
+        f'<li class="row alert"><span class="rank">!</span><div><div class="name">{escape(_item_name(item["item_id"], language))}</div>'
+        f'<div class="sub">{("Available" if en else "Tilgjengelig")}: {escape(_number(item["available"]))} {"pcs" if en else "stk"} · '
+        f'{("Required" if en else "Behov")}: {escape(_number(item["required"]))} {"pcs" if en else "stk"}</div></div>'
+        f'<span class="qty">{("Missing" if en else "Mangler")} {escape(_number(item["shortfall"]))} {"pcs" if en else "stk"}</span></li>'
         for item in shortfalls
     )
     short_block = f'<ul class="rows">{short_rows}</ul>' if shortfalls else _empty("No shortfalls today." if en else "Ingen mangler i dag.")
 
     order_rows = "".join(
-        f'<tr><td><strong>{escape(_item_name(order["item_id"]))}</strong></td>'
-        f'<td>{escape(str(order["order_qty"]))} {escape(_unit(order["unit"], language))}</td>'
-        f'<td>{escape(order["supplier"])}</td><td>{escape(order["delivery_date"])}</td></tr>'
+        f'<tr><td><strong>{escape(_item_name(order["item_id"], language))}</strong></td>'
+        f'<td>{escape(_number(order["order_qty"]))} {escape(_unit(order["unit"], language))}</td>'
+        f'<td>{escape(order["supplier"])}</td><td><time datetime="{escape(order["delivery_date"])}">'
+        f'{escape(_display_date(order["delivery_date"], language))}</time></td></tr>'
         for order in orders
     )
     order_block = (
@@ -253,30 +382,55 @@ def render_home(
     )
 
     waste_rows = "".join(
-        f'<li class="row danger"><span class="rank">×</span><div><div class="name">{escape(_item_name(item["item_id"]))}</div>'
-        f'<div class="sub">{escape(item["batch_id"])} · {("Expired" if en else "Utløpt")} {escape(item["expiry_date"])}</div></div>'
-        f'<span class="qty">{escape(str(item["qty"]))}</span></li>' for item in waste
+        f'<li class="row danger"><span class="rank">×</span><div><div class="name">{escape(_item_name(item["item_id"], language))}</div>'
+        f'<div class="sub">{escape(item["batch_id"])} · {("Expired" if en else "Utløpt")} <time datetime="{escape(item["expiry_date"])}">{escape(_display_date(item["expiry_date"], language))}</time></div></div>'
+        f'<span class="qty">{escape(_number(item["qty"]))}</span></li>' for item in waste
     )
     waste_block = f'<ul class="rows">{waste_rows}</ul>' if waste else _empty("No expired waste." if en else "Ingen utgått svinn.")
 
     briefing = plan.get("briefing", {})
     briefing_summary = str(briefing.get("summary", "")).strip()
+    if not en:
+        briefing_summary = (
+            f'{_number(plan.get("expected_covers", 0))} gjester forventet. '
+            f'{len(shortfalls)} {"mangel" if len(shortfalls) == 1 else "mangler"} krever oppfølging.'
+        )
+
+    def action_text(action: dict) -> str:
+        if en:
+            return str(action.get("recommended_action", ""))
+        shortfall = next(
+            (item for item in shortfalls if item.get("item_id") == action.get("item_id")),
+            None,
+        )
+        if shortfall:
+            return (
+                f'Skaff {_number(shortfall.get("shortfall", 0))} stk '
+                f'{_item_name(str(shortfall.get("item_id", "")), language)} før service.'
+            )
+        return "Kontroller anbefalingen før service."
+
     action_rows = "".join(
-        f'<li class="row alert"><span class="rank">!</span><div><div class="name">{escape(_item_name(action["item_id"]))}</div>'
-        f'<div class="reason">{escape(str(action.get("recommended_action", "")))}</div>'
-        f'{("<span class=\"action-badge\">" + ("Human approval required" if en else "Krever menneskelig godkjenning") + "</span>") if action.get("requires_human_approval") else ""}'
+        f'<li class="row alert"><span class="rank">!</span><div><div class="name">{escape(_item_name(action["item_id"], language))}</div>'
+        f'<div class="reason">{escape(action_text(action))}</div>'
+        f'{("<span class=\"action-badge\">" + ("Approval required" if en else "Krever godkjenning") + "</span>") if action.get("requires_human_approval") else ""}'
         f'</div></li>'
         for action in briefing.get("shortfall_actions", [])
         if action.get("item_id")
     )
-    warning_items = "".join(
-        f'<li>{escape(str(warning))}</li>' for warning in briefing.get("warnings", []) if str(warning).strip()
+    warning_items = "".join(f'<li>{escape(str(warning))}</li>' for warning in briefing.get("warnings", []) if str(warning).strip()) if en else "".join(
+        f'<li>Kasser utgått parti {escape(str(item.get("batch_id", "")))}.</li>' for item in waste
     )
     briefing_content = (
         (f'<p class="briefing-summary">{escape(briefing_summary)}</p>' if briefing_summary else "")
         + (f'<ul class="rows">{action_rows}</ul>' if action_rows else "")
         + (f'<ul class="warning-list">{warning_items}</ul>' if warning_items else "")
     ) or _empty("No agent briefing." if en else "Ingen agentbriefing.")
+    priority_items = "".join(
+        f'<div class="priority-item"><span class="rank">{task["priority"]}</span><div><div class="name">{escape(_dish_name(task["dish_id"]))}</div>'
+        f'<div class="sub">{escape(_duration(task["prep_minutes"], language))}</div></div><span class="qty">{escape(_number(task["qty"]))} {"pcs" if en else "stk"}</span></div>'
+        for task in prep[:3]
+    ) or f'<p class="empty">{"No prep tasks." if en else "Ingen prep-oppgaver."}</p>'
 
     drivers = forecast.get("drivers", [])
     driver_block = "".join(f'<span class="chip">{escape(_human_id(str(driver)))}</span>' for driver in drivers)
@@ -292,17 +446,21 @@ def render_home(
     forecast_note = plan.get("forecast_note", "")
     forecast_source = str(forecast.get("forecast_source", "unknown"))
     briefing_source = str(plan.get("briefing_source", "unknown"))
+    forecast_label = _source_label(forecast_source, language)
+    briefing_label = _source_label(briefing_source, language)
     validation_fallback = forecast_source == "deterministic_fallback"
     validation_value = ("Fallback activated" if en else "Fallback aktivert") if validation_fallback else ("Proposal accepted" if en else "Forslag godkjent")
     fefo_count = len(plan.get("fefo_consumption", []))
     covers_source = str(plan.get("covers_source", "expected_covers"))
     planning_basis = str(plan.get("planning_basis", "today_consumption_plus_par"))
+    generated_raw = str(plan.get("generated_at", ""))
+    generated_display = _display_timestamp(generated_raw, language)
     flow_steps = [
-        (("Inputs" if en else "Datagrunnlag"), f'{plan["expected_covers"]} {"guests" if en else "gjester"}', covers_source, False),
-        (("AI forecast" if en else "AI-prognose"), forecast_source, f'{len(forecast.get("dishes", []))} {"dish predictions" if en else "rettsprognoser"}', validation_fallback),
-        (("Validation" if en else "Validering"), validation_value, str(forecast_note or "—"), validation_fallback),
-        (("Deterministic math" if en else "Deterministisk beregning"), f'FEFO · {fefo_count} {"batch uses" if en else "batchuttak"}', planning_basis, False),
-        (("Published plan" if en else "Publisert plan"), briefing_source, str(plan.get("generated_at", "—")), briefing_source == "deterministic_fallback"),
+        (("Inputs" if en else "Datagrunnlag"), f'{plan["expected_covers"]} {"guests" if en else "gjester"}', _technical_label(covers_source, language), False),
+        (("AI forecast" if en else "AI-prognose"), forecast_label, f'{len(forecast.get("dishes", []))} {"dish predictions" if en else "rettsprognoser"}', validation_fallback),
+        (("Validation" if en else "Validering"), validation_value, _technical_label(str(forecast_note or "—"), language), validation_fallback),
+        (("Deterministic math" if en else "Deterministisk beregning"), f'FEFO · {fefo_count} {"batch uses" if en else "batchuttak"}', _technical_label(planning_basis, language), False),
+        (("Published plan" if en else "Publisert plan"), briefing_label, generated_display, briefing_source == "deterministic_fallback"),
     ]
     flow_items = "".join(
         f'<li class="flow-step{" flow-step--fallback" if fallback else ""}"><div class="flow-top"><span class="flow-number">{number}</span>'
@@ -317,59 +475,76 @@ def render_home(
             continue
         selected = historic_date == str(plan.get("date"))
         href = f"?lang={language}&amp;date={escape(historic_date)}"
-        label = f'{historic_date} · {historic.get("expected_covers", "—")} {"guests" if en else "gjester"}'
+        label = f'{_display_date(historic_date, language)} · {historic.get("expected_covers", "—")} {"guests" if en else "gjester"}'
+        raw_label = f'{historic_date} · {historic.get("expected_covers", "—")} {"guests" if en else "gjester"}'
         history_items.append(
-            f'<a class="chip" href="{href}"{(" aria-current=\"page\"" if selected else "")}>{escape(label)}</a>'
+            f'<a class="chip" href="{href}" aria-label="{escape(raw_label)}" title="{escape(historic_date)}"'
+            f'{(" aria-current=\"page\"" if selected else "")}>{escape(label)}</a>'
         )
     history_block = "".join(history_items)
     short_card_class = "card card--alert" if shortfalls else "card"
+    plan_date = _display_date(str(plan.get("date", "")), language)
+    status_explanation = (
+        ("Forecast model unavailable; verified reserve model used." if en else "Prognosemodellen er utilgjengelig; kontrollert reservemodell er brukt.")
+        if degraded else ("All primary systems are available." if en else "Alle primærsystemer er tilgjengelige.")
+    )
+    if shortfalls:
+        critical = shortfalls[0]
+        critical_item = _item_name(str(critical.get("item_id", "")), language)
+        critical_qty = _number(critical.get("shortfall", 0))
+        critical_block = f'''<section class="critical-action" id="critical-actions" aria-labelledby="critical-title">
+<span class="critical-icon">!</span><div><h2 id="critical-title">{"Action required" if en else "Handling kreves"}: {"Source" if en else "Skaff"} {escape(critical_qty)} {"pcs" if en else "stk"} {escape(critical_item)}</h2>
+<p>{"Resolve before service. Review the calculated order and approval recommendation." if en else "Må løses før service. Kontroller bestillingsforslaget og anbefalingen før godkjenning."}</p></div>
+<div class="action-links"><a class="button" href="#orders">{"Review order" if en else "Se bestillingsforslag"}</a><a class="button button--secondary" href="#approval">{"Review approval" if en else "Se godkjenning"}</a></div></section>'''
+    else:
+        critical_block = f'''<section class="critical-action" id="critical-actions" style="border-left-color:var(--good);border-color:#b9d8c5;background:#f3fbf6;color:var(--ink)">
+<span class="critical-icon" style="background:var(--good)">✓</span><div><h2>{"No critical actions" if en else "Ingen kritiske handlinger"}</h2><p>{"The plan is ready for service." if en else "Planen er klar for service."}</p></div></section>'''
     return f"""<!doctype html>
 <html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kitchen Prep — {escape(plan['date'])}</title><style>{_STYLE}</style></head><body><main class="shell">
 <nav class="topbar">{brand}{switch}</nav>
-<header class="hero"><div class="hero-row"><div class="hero-copy"><p class="eyebrow">{"Daily operations plan" if en else "Dagens driftsplan"}</p>
-<h1>{"A complete kitchen plan, before service" if en else "En komplett kjøkkenplan, før service"}</h1>
-<span class="hero-kicker">{"Ready for service" if en else "Klar for service"}</span>
-<p>{"From demand signals to safe prep and ordering decisions" if en else "Fra etterspørselssignaler til trygge prep- og bestillingsbeslutninger"}<br>{escape(plan['date'])} · {escape(str(plan.get('generated_at', '')))}</p>
-<nav class="hero-actions" aria-label="Quick navigation">
-<a class="hero-link" href="#agent-run">{"Agent run" if en else "Agentkjøring"} ↓</a>
-<a class="hero-link" href="#prep-plan">{"Prep plan" if en else "Prep-plan"} ↓</a>
-<a class="hero-link" href="#orders">{"Orders" if en else "Bestillinger"} ↓</a>
-<a class="hero-link" href="#forecast">{"Forecast" if en else "Prognose"} ↓</a></nav></div>
+<header class="hero"><div class="hero-row"><div class="hero-copy"><p class="eyebrow">{"Operations overview" if en else "Operativ oversikt"}</p>
+<h1>{"Today’s kitchen plan" if en else "Dagens kjøkkenplan"}</h1>
+<p>{escape(status_explanation)}<br>{"Plan for" if en else "Plan for"} <time datetime="{escape(str(plan.get('date', '')))}">{escape(plan_date)}</time> · {plan['expected_covers']} {"guests" if en else "gjester"}<br>
+{"Last updated" if en else "Sist oppdatert"}: <time datetime="{escape(generated_raw)}">{escape(generated_display)}</time></p></div>
 <span class="{status_class}"><span class="dot"></span>{escape(status)}</span></div></header>
 
-<section class="value-strip" aria-label="{"Why this matters" if en else "Hvorfor dette betyr noe"}">
-<div class="value-card"><span class="value-icon">↻</span><div><strong>{"Autonomous" if en else "Autonom"}</strong><span>{"Runs before the team arrives" if en else "Kjører før teamet kommer"}</span></div></div>
-<div class="value-card"><span class="value-icon">✓</span><div><strong>{"Safe quantities" if en else "Trygge mengder"}</strong><span>{"Python owns every operational number" if en else "Python eier alle operative tall"}</span></div></div>
-<div class="value-card"><span class="value-icon">◎</span><div><strong>{"Auditable" if en else "Reviderbar"}</strong><span>{"Sources, fallbacks and history stay visible" if en else "Kilder, fallback og historikk er synlig"}</span></div></div>
+<section class="service-summary" aria-label="{"Service summary" if en else "Serviceoversikt"}">
+<div class="summary-card"><span class="label">{"Plan for" if en else "Plan for"}</span><strong>{escape(plan_date)}</strong></div>
+<div class="summary-card"><span class="label">{"Expected guests" if en else "Forventede gjester"}</span><strong>{escape(_number(plan['expected_covers']))}</strong></div>
+<div class="summary-card"><span class="label">{"Critical shortfalls" if en else "Kritiske mangler"}</span><strong>{len(shortfalls)}</strong></div>
+<div class="summary-card"><span class="label">{"Next step" if en else "Neste handling"}</span><strong>{"Resolve shortfall" if shortfalls and en else "Løs mangel" if shortfalls else "Start prep" if en else "Start prep"}</strong></div>
 </section>
 
-<section class="cards" aria-label="Key metrics">
-<div class="card"><span class="label">{"Expected guests" if en else "Forventede gjester"}</span><span class="value">{escape(str(plan['expected_covers']))}</span></div>
-<div class="card"><span class="label">{"Prep tasks" if en else "Prep-oppgaver"}</span><span class="value">{len(prep)}</span></div>
-<div class="{short_card_class}"><span class="label">{"Shortfalls" if en else "Mangler"}</span><span class="value">{len(shortfalls)}</span></div>
-<div class="card"><span class="label">{"Orders" if en else "Bestillinger"}</span><span class="value">{len(orders)}</span></div>
-</section>
+{critical_block}
 
-<section class="panel run-flow" id="agent-run" aria-labelledby="run-flow-title"><header class="panel-head">
-<h2 id="run-flow-title">{"Autonomous run" if en else "Autonom kjøring"}</h2>
-<p>{"One traceable path from operational inputs to a published plan" if en else "Ett sporbart løp fra driftsdata til publisert plan"}</p>
-</header><ol class="flow-list">{flow_items}</ol></section>
+<nav class="section-nav" aria-label="Quick navigation">
+<a class="section-link" href="#critical-actions">{"Actions" if en else "Handlinger"}</a>
+<a class="section-link" href="#prep-plan">{"Prep plan" if en else "Prep-plan"}</a>
+<a class="section-link" href="#orders">{"Orders" if en else "Bestillinger"}</a>
+<a class="section-link" href="#forecast">{"Forecast" if en else "Prognose"}</a>
+<a class="section-link" href="#traceability">{"Traceability" if en else "Sporbarhet"}</a></nav>
 
+<div class="stack">
+<section class="panel" id="prep-plan"><header class="panel-head"><h2>{"Today’s prep" if en else "Dagens prep"}</h2><p>{"Work in priority order" if en else "Utfør i prioritert rekkefølge"}</p></header>{prep_block}</section>
+<div class="grid"><section class="panel" id="approval"><header class="panel-head"><h2>{"Approval and recommendations" if en else "Godkjenning og anbefalinger"}</h2><p>{"Review before taking external action" if en else "Kontroller før eksterne tiltak gjennomføres"}</p></header>{briefing_content}</section>
+<section class="panel"><header class="panel-head"><h2>{"Service shortfalls" if en else "Mangler før service"}</h2><p>{"Must be resolved before service" if en else "Må løses før service"}</p></header>{short_block}</section></div>
+<section class="panel" id="orders"><header class="panel-head"><h2>{"Order proposals" if en else "Bestillingsforslag"}</h2><p>{"Expected delivery is shown separately from the plan date" if en else "Forventet levering vises separat fra plandatoen"}</p></header>{order_block}</section>
+<section class="panel" id="forecast"><header class="panel-head"><h2>{"Demand forecast" if en else "Etterspørselsprognose"}</h2><p>{"Expected quantities for today’s service" if en else "Forventede mengder for dagens service"}</p></header>
+{f'<div class="driver-list">{driver_block}</div>' if driver_block else f'<p class="empty">{"No forecast drivers are available because the reserve model was used." if en else "Ingen prognosedrivere er tilgjengelige fordi reservemodellen ble brukt."}</p>'}{forecast_rows}</section>
+<section class="panel"><header class="panel-head"><h2>{"Waste requiring attention" if en else "Svinn som krever kontroll"}</h2><p>{"Expired stock is excluded before consumption is calculated" if en else "Utgått lager er fjernet før forbruk beregnes"}</p></header>{waste_block}</section>
+</div>
+
+<details class="trace-details" id="traceability"><summary>{"Traceability and technical details" if en else "Sporbarhet og tekniske detaljer"}</summary><div class="trace-content">
+<section class="panel run-flow" id="agent-run" aria-labelledby="run-flow-title" data-technical="{escape(' | '.join((covers_source, forecast_source, str(forecast_note or '—'), planning_basis, briefing_source)))}"><header class="panel-head">
+<h2 id="run-flow-title">{"Autonomous run" if en else "Autonom kjøring"}</h2><p>{"Trace from operational inputs to the published plan" if en else "Spor fra driftsdata til publisert plan"}</p></header><ol class="flow-list">{flow_items}</ol></section>
 <div class="grid"><div class="stack">
-{f'<section class="panel"><header class="panel-head"><h2>{"Plan history" if en else "Planhistorikk"}</h2><p>{"Read-only Firestore plans" if en else "Skrivebeskyttede Firestore-planer"}</p></header><div class="driver-list">{history_block}</div></section>' if history_block else ''}
-<section class="panel"><header class="panel-head"><h2>{"Agent briefing" if en else "Agentbriefing"}</h2><p>{"AI recommendations; arithmetic remains deterministic" if en else "AI-anbefalinger; beregningene er fortsatt deterministiske"}</p></header>{briefing_content}</section>
-<section class="panel" id="prep-plan"><header class="panel-head"><h2>{"Prioritized prep" if en else "Prioritert prep"}</h2><p>{"What the kitchen should start first" if en else "Det kjøkkenet bør starte med først"}</p></header>{prep_block}</section>
-<section class="panel"><header class="panel-head"><h2>{"Today’s shortfalls" if en else "Mangler i dag"}</h2><p>{"Required for service, separate from replenishment" if en else "Behov til service, adskilt fra bestilling"}</p></header>{short_block}</section>
-<section class="panel" id="orders"><header class="panel-head"><h2>{"Replenishment orders" if en else "Bestillinger til par"}</h2><p>{"Calculated from inventory remaining after today’s consumption" if en else "Beregnet fra lager etter dagens forbruk"}</p></header>{order_block}</section>
-</div><aside class="stack">
+{f'<section class="panel"><header class="panel-head"><h2>{"Plan history" if en else "Planhistorikk"}</h2><p>{"Read-only archived plans" if en else "Skrivebeskyttede arkiverte planer"}</p></header><div class="driver-list">{history_block}</div></section>' if history_block else ''}
 <section class="panel"><header class="panel-head"><h2>{"Run integrity" if en else "Kjøringsintegritet"}</h2><p>{"Model paths and audit status" if en else "Modellbaner og revisjonsstatus"}</p></header>
-<div class="source"><span>{"Forecast" if en else "Prognose"}</span><strong>{escape(str(forecast.get('forecast_source', '')))}</strong></div>
-<div class="source"><span>{"Briefing" if en else "Briefing"}</span><strong>{escape(str(plan.get('briefing_source', '')))}</strong></div>
-<div class="source"><span>{"Inventory" if en else "Lager"}</span><strong>{escape(str(plan.get('inventory_basis', 'seed_inventory')))}</strong></div>
-<div class="source"><span>{"Diagnostic" if en else "Diagnostikk"}</span><strong>{escape(str(forecast_note or '—'))}</strong></div></section>
-<section class="panel" id="forecast"><header class="panel-head"><h2>{"Forecast drivers" if en else "Prognosedrivere"}</h2><p>{"Signals used by the validated demand proposal" if en else "Signaler brukt i validert etterspørselsforslag"}</p></header><div class="driver-list">{driver_block or '<span class="chip">—</span>'}</div>{forecast_rows}</section>
-<section class="panel"><header class="panel-head"><h2>{"Expired waste" if en else "Utgått svinn"}</h2><p>{"Removed before FEFO consumption" if en else "Fjernet før FEFO-forbruk"}</p></header>{waste_block}</section>
-</aside></div>
-<footer class="footer">{"Gemini judgment · deterministic arithmetic · Firestore audit trail" if en else "Gemini-vurdering · deterministiske beregninger · Firestore-spor"}</footer>
+<div class="source"><span>{"Forecast source" if en else "Prognosekilde"}</span><strong title="{escape(forecast_source)}">{escape(forecast_label)}</strong></div>
+<div class="source"><span>{"Briefing source" if en else "Briefingkilde"}</span><strong title="{escape(briefing_source)}">{escape(briefing_label)}</strong></div>
+<div class="source"><span>{"Inventory basis" if en else "Lagergrunnlag"}</span><strong title="{escape(str(plan.get('inventory_basis', 'seed_inventory')))}">{escape(_technical_label(str(plan.get('inventory_basis', 'seed_inventory')), language))}</strong></div>
+<div class="source"><span>{"Diagnostic" if en else "Diagnostikk"}</span><strong title="{escape(str(forecast_note or '—'))}">{escape(_technical_label(str(forecast_note or '—'), language))}</strong></div></section>
+</div></div></div></details>
+<footer class="footer">{"Operational plan with a complete audit trail" if en else "Operativ plan med fullstendig revisjonsspor"}</footer>
 </main></body></html>"""
