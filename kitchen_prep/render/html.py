@@ -5,6 +5,7 @@ from datetime import datetime
 from html import escape
 
 from ..data_access import menu as menu_da
+from ..units import ingredient_unit, portion_label, unit_label
 
 
 def _run_status(plan: dict, language: str) -> tuple[str, bool]:
@@ -32,12 +33,6 @@ def _item_name(item_id: str, language: str = "en") -> str:
     if language == "no" and item_id in norwegian:
         return norwegian[item_id]
     return _human_id(item_id)
-
-
-def _unit(unit: str, language: str) -> str:
-    if unit == "stk":
-        return "pcs" if language == "en" else "stk"
-    return unit
 
 
 def _number(value: object) -> str:
@@ -367,23 +362,23 @@ def render_home(
     prep_rows = "".join(
         f'<li class="row"><span class="rank">{task["priority"]}</span><div><div class="name">{escape(_dish_name(task["dish_id"]))}</div>'
         f'<div class="sub" title="ID: {escape(task["dish_id"])}">{escape(_duration(task["prep_minutes"], language))}</div></div>'
-        f'<span class="qty">{escape(_number(task["qty"]))} {"pcs" if en else "stk"}</span></li>'
+        f'<span class="qty">{escape(_number(task["qty"]))} {escape(portion_label(language))}</span></li>'
         for task in prep
     )
     prep_block = f'<ul class="rows">{prep_rows}</ul>' if prep else _empty("No prep tasks." if en else "Ingen prep-oppgaver.")
 
     short_rows = "".join(
         f'<li class="row alert"><span class="rank">!</span><div><div class="name">{escape(_item_name(item["item_id"], language))}</div>'
-        f'<div class="sub">{("Available" if en else "Tilgjengelig")}: {escape(_number(item["available"]))} {"pcs" if en else "stk"} · '
-        f'{("Required" if en else "Behov")}: {escape(_number(item["required"]))} {"pcs" if en else "stk"}</div></div>'
-        f'<span class="qty">{("Missing" if en else "Mangler")} {escape(_number(item["shortfall"]))} {"pcs" if en else "stk"}</span></li>'
+        f'<div class="sub">{("Available" if en else "Tilgjengelig")}: {escape(_number(item["available"]))} {escape(ingredient_unit(item["item_id"], language))} · '
+        f'{("Required" if en else "Behov")}: {escape(_number(item["required"]))} {escape(ingredient_unit(item["item_id"], language))}</div></div>'
+        f'<span class="qty">{("Missing" if en else "Mangler")} {escape(_number(item["shortfall"]))} {escape(ingredient_unit(item["item_id"], language))}</span></li>'
         for item in shortfalls
     )
     short_block = f'<ul class="rows">{short_rows}</ul>' if shortfalls else _empty("No shortfalls today." if en else "Ingen mangler i dag.")
 
     order_rows = "".join(
         f'<tr><td><strong>{escape(_item_name(order["item_id"], language))}</strong></td>'
-        f'<td>{escape(_number(order["order_qty"]))} {escape(_unit(order["unit"], language))}</td>'
+        f'<td>{escape(_number(order["order_qty"]))} {escape(unit_label(order["unit"], language))}</td>'
         f'<td>{escape(order["supplier"])}</td><td><time datetime="{escape(order["delivery_date"])}">'
         f'{escape(_display_date(order["delivery_date"], language))}</time></td></tr>'
         for order in orders
@@ -397,7 +392,8 @@ def render_home(
     waste_rows = "".join(
         f'<li class="row danger"><span class="rank">×</span><div><div class="name">{escape(_item_name(item["item_id"], language))}</div>'
         f'<div class="sub">{escape(item["batch_id"])} · {("Expired" if en else "Utløpt")} <time datetime="{escape(item["expiry_date"])}">{escape(_display_date(item["expiry_date"], language))}</time></div></div>'
-        f'<span class="qty">{escape(_number(item["qty"]))}</span></li>' for item in waste
+        f'<span class="qty">{escape(_number(item["qty"]))} {escape(ingredient_unit(item["item_id"], language))}</span></li>'
+        for item in waste
     )
     waste_block = f'<ul class="rows">{waste_rows}</ul>' if waste else _empty("No expired waste." if en else "Ingen utgått svinn.")
 
@@ -417,9 +413,11 @@ def render_home(
             None,
         )
         if shortfall:
+            item_id = str(shortfall.get("item_id", ""))
             return (
-                f'Skaff {_number(shortfall.get("shortfall", 0))} stk '
-                f'{_item_name(str(shortfall.get("item_id", "")), language)} før service.'
+                f'Skaff {_number(shortfall.get("shortfall", 0))} '
+                f'{ingredient_unit(item_id, language)} '
+                f'{_item_name(item_id, language)} før service.'
             )
         return "Kontroller anbefalingen før service."
 
@@ -441,7 +439,7 @@ def render_home(
     ) or _empty("No agent briefing." if en else "Ingen agentbriefing.")
     priority_items = "".join(
         f'<div class="priority-item"><span class="rank">{task["priority"]}</span><div><div class="name">{escape(_dish_name(task["dish_id"]))}</div>'
-        f'<div class="sub">{escape(_duration(task["prep_minutes"], language))}</div></div><span class="qty">{escape(_number(task["qty"]))} {"pcs" if en else "stk"}</span></div>'
+        f'<div class="sub">{escape(_duration(task["prep_minutes"], language))}</div></div><span class="qty">{escape(_number(task["qty"]))} {escape(portion_label(language))}</span></div>'
         for task in prep[:3]
     ) or f'<p class="empty">{"No prep tasks." if en else "Ingen prep-oppgaver."}</p>'
 
@@ -537,7 +535,7 @@ def render_home(
             action_controls = f'<a class="button" href="#orders">{"Review order" if en else "Se bestillingsforslag"}</a><a class="button button--secondary" href="#approval">{"Review approval" if en else "Se godkjenning"}</a>'
         critical_heading = (("Resolved" if en else "Markert som løst") if action_status == "resolved" else ("Action required" if en else "Handling kreves"))
         critical_block = f'''<section class="{critical_class}" id="critical-actions" aria-labelledby="critical-title">
-<span class="critical-icon">{critical_icon}</span><div><h2 id="critical-title">{critical_heading}: {"Source" if en and action_status != "resolved" else "Skaff" if not en and action_status != "resolved" else ""} {escape(critical_qty)} {"pcs" if en else "stk"} {escape(critical_item)}</h2>
+<span class="critical-icon">{critical_icon}</span><div><h2 id="critical-title">{critical_heading}: {"Source" if en and action_status != "resolved" else "Skaff" if not en and action_status != "resolved" else ""} {escape(critical_qty)} {escape(ingredient_unit(critical_item_id, language))} {escape(critical_item)}</h2>
 <p>{"Resolve before service. Review the calculated order and approval recommendation." if en else "Må løses før service. Kontroller bestillingsforslaget og anbefalingen før godkjenning."}</p><span class="action-state">{"Status" if en else "Status"}: {escape(action_state)}</span></div>
 <div class="action-links">{action_controls}</div></section>'''
     else:

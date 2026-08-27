@@ -17,11 +17,13 @@ from kitchen_prep.data_access import bookings as bookings_da  # noqa: E402
 from kitchen_prep.data_access import menu as menu_da  # noqa: E402
 from kitchen_prep.data_access import sales as sales_da  # noqa: E402
 from kitchen_prep.data_access import store as store_da  # noqa: E402
+from kitchen_prep.units import SUPPORTED_UNITS  # noqa: E402
 
 
 def check() -> list[str]:
     errors: list[str] = []
-    ing_ids = set(menu_da.ingredients_by_id())
+    ingredients = menu_da.ingredients_by_id()
+    ing_ids = set(ingredients)
     menu_ids = set(menu_da.dish_ids())
 
     # 1. Recipe ingredients exist in the master.
@@ -29,6 +31,27 @@ def check() -> list[str]:
         for item_id in dish["recipe"]:
             if item_id not in ing_ids:
                 errors.append(f"recipe {dish['id']} references unknown ingredient {item_id!r}")
+
+    # 1b. Every ingredient carries a supported, renderable unit.
+    for item_id, meta in sorted(ingredients.items()):
+        unit = meta.get("unit")
+        if unit is None:
+            errors.append(f"ingredient {item_id!r} has no unit")
+        elif unit not in SUPPORTED_UNITS:
+            errors.append(
+                f"ingredient {item_id!r} has unsupported unit {unit!r} "
+                f"(supported: {list(SUPPORTED_UNITS)})"
+            )
+
+    # 1c. Every recipe ingredient resolves to a supported unit.
+    for dish in menu_da.load_menu():
+        for item_id in dish["recipe"]:
+            unit = ingredients.get(item_id, {}).get("unit")
+            if item_id in ing_ids and unit not in SUPPORTED_UNITS:
+                errors.append(
+                    f"recipe {dish['id']} ingredient {item_id!r} does not resolve to a "
+                    f"supported unit (got {unit!r})"
+                )
 
     # 2. BASE_QTY keys match the menu exactly.
     base_ids = set(config.BASE_QTY)

@@ -7,12 +7,11 @@ the model never returns the authoritative plan as free-form Markdown.
 from __future__ import annotations
 
 from ..contracts import validate_briefing
-from ..data_access import menu as menu_da
 from ..gemini.client import GeminiUnavailable
+from ..units import ingredient_unit
 
 
 def build_deterministic_briefing(plan: dict) -> dict:
-    ingredients = menu_da.ingredients_by_id()
     prep_tasks = plan["prep_tasks"]
     shortfalls = plan["prep_shortfalls"]
     waste = plan["waste_flagged"]
@@ -21,7 +20,7 @@ def build_deterministic_briefing(plan: dict) -> dict:
 
     shortfall_actions = []
     for s in shortfalls:
-        unit = ingredients.get(s["item_id"], {}).get("unit", "")
+        unit = ingredient_unit(s["item_id"], "en")
         shortfall_actions.append(
             {
                 "item_id": s["item_id"],
@@ -33,7 +32,8 @@ def build_deterministic_briefing(plan: dict) -> dict:
         )
 
     warnings = [
-        f"Batch {b['batch_id']} ({b['item_id']}, {b['qty']}) expired {b['expiry_date']} — discard."
+        f"Batch {b['batch_id']} ({b['item_id']}, {b['qty']} "
+        f"{ingredient_unit(b['item_id'], 'en')}) expired {b['expiry_date']} — discard."
         for b in waste
     ]
     if plan["forecast"]["forecast_source"] == "deterministic_fallback":

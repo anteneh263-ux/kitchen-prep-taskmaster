@@ -1,5 +1,9 @@
 """Pure HTML rendering of the home page (no web framework required)."""
+import pytest
+
+from kitchen_prep.data_access import menu as menu_da
 from kitchen_prep.render.html import render_home
+from kitchen_prep.units import UnitResolutionError, ingredient_unit, unit_label
 
 
 def _plan():
@@ -218,3 +222,132 @@ def test_render_home_escapes_agent_briefing_content():
     assert "<b>unsafe</b>" not in html
     assert "&lt;script&gt;" in html
     assert "&lt;b&gt;unsafe&lt;/b&gt;" in html
+
+
+# --- Units --------------------------------------------------------------
+# The ingredient master is authoritative: bbq_sauce is litres, chicken_wings is
+# kilograms. Every fixture above uses beef_patty/burger_bun (stk), which is why
+# a hardcoded "pcs" went unnoticed; these plans exercise the non-piece units.
+
+
+def _plan_non_piece_units():
+    plan = _plan()
+    plan["prep_tasks"] = [
+        {"task_id": "prep_bbq_wings", "dish_id": "bbq_wings", "qty": 16,
+         "prep_minutes": 32.0, "priority": 1},
+    ]
+    plan["prep_shortfalls"] = [
+        {"item_id": "bbq_sauce", "required": 6.2, "available": 4.0, "shortfall": 2.2},
+        {"item_id": "chicken_wings", "required": 11.5, "available": 9.0, "shortfall": 2.5},
+    ]
+    plan["replenishment_orders"] = [
+        {"item_id": "bbq_sauce", "order_qty": 5, "unit": "l", "supplier": "DryGoods",
+         "delivery_date": "2026-08-17"},
+        {"item_id": "chicken_wings", "order_qty": 10, "unit": "kg", "supplier": "MeatCo",
+         "delivery_date": "2026-08-16"},
+    ]
+    plan["waste_flagged"] = [
+        {"batch_id": "b10", "item_id": "bbq_sauce", "qty": 1.5, "expiry_date": "2026-08-13"},
+    ]
+    plan["briefing"]["shortfall_actions"] = [
+        {"item_id": "bbq_sauce", "recommended_action": "Source 2.2 l before service.",
+         "requires_human_approval": True},
+    ]
+    return plan
+
+
+def test_bbq_sauce_shortfall_uses_litres_on_every_html_surface():
+    html = render_home(_plan_non_piece_units(), language="en")
+    # Shortfall card: available, required, missing.
+    assert "Available: 4 l · Required: 6.2 l" in html
+    assert "Missing 2.2 l" in html
+    # Critical-action hero banner (first shortfall).
+    assert "Action required: Source 2.2 l Bbq Sauce" in html
+    # Order table.
+    assert "<td>5 l</td>" in html
+
+
+def test_chicken_wings_shortfall_uses_kilograms_on_every_html_surface():
+    html = render_home(_plan_non_piece_units(), language="en")
+    assert "Available: 9 kg · Required: 11.5 kg" in html
+    assert "Missing 2.5 kg" in html
+    assert "<td>10 kg</td>" in html
+
+
+def test_non_piece_plan_never_renders_a_piece_unit():
+    for language in ("en", "no"):
+        html = render_home(_plan_non_piece_units(), language=language)
+        assert "pcs" not in html
+        assert " stk" not in html
+
+
+def test_norwegian_uses_litres_and_kilograms_for_these_ingredients():
+    html = render_home(_plan_non_piece_units(), language="no")
+    assert "Tilgjengelig: 4 l · Behov: 6.2 l" in html
+    assert "Mangler 2.2 l" in html
+    assert "Mangler 2.5 kg" in html
+    assert "Skaff 2.2 l Bbq Sauce" in html          # hero banner
+    assert "Skaff 2.2 l Bbq Sauce før service." in html  # Norwegian action text
+
+
+def test_order_and_shortfall_agree_on_the_unit_for_the_same_ingredient():
+    plan = _plan_non_piece_units()
+    for language in ("en", "no"):
+        html = render_home(plan, language=language)
+        for order in plan["replenishment_orders"]:
+            shortfall = next(
+                s for s in plan["prep_shortfalls"] if s["item_id"] == order["item_id"]
+            )
+            unit = ingredient_unit(order["item_id"], language)
+            assert unit == unit_label(order["unit"], language)
+            missing = "Missing" if language == "en" else "Mangler"
+            assert f'{missing} {shortfall["shortfall"]:g} {unit}' in html
+            assert f'<td>{order["order_qty"]:g} {unit}</td>' in html
+
+
+def test_waste_rows_carry_the_authoritative_unit():
+    assert "1.5 l" in render_home(_plan_non_piece_units(), language="en")
+    # pork_ribs is kilograms in the ingredient master.
+    assert "7 kg" in render_home(_plan(), language="en")
+
+
+def test_piece_ingredients_still_render_pcs_and_stk():
+    # beef_patty is "stk": English "pcs", Norwegian "stk". Unchanged behaviour.
+    en = render_home(_plan(), language="en")
+    assert "Available: 40 pcs · Required: 71 pcs" in en
+    assert "Missing 31 pcs" in en
+    assert "Action required: Source 31 pcs Beef Patty" in en
+    no = render_home(_plan(), language="no")
+    assert "Tilgjengelig: 40 stk · Behov: 71 stk" in no
+    assert "Mangler 31 stk" in no
+
+
+def test_prep_task_quantities_are_portions_not_ingredient_pieces():
+    en = render_home(_plan(), language="en")
+    assert "19 portions" in en   # prep row
+    assert "45 portions" in en
+    no = render_home(_plan(), language="no")
+    assert "19 porsjoner" in no
+    assert "45 porsjoner" in no
+
+
+def test_unknown_ingredient_id_fails_clearly():
+    plan = _plan()
+    plan["prep_shortfalls"] = [
+        {"item_id": "unicorn_steak", "required": 1, "available": 0, "shortfall": 1}
+    ]
+    with pytest.raises(UnitResolutionError, match="unknown ingredient id 'unicorn_steak'"):
+        render_home(plan, language="en")
+
+
+def test_unsupported_unit_fails_clearly():
+    with pytest.raises(UnitResolutionError, match="unsupported unit 'lbs'"):
+        unit_label("lbs", "en")
+
+
+def test_missing_unit_on_an_ingredient_fails_clearly(monkeypatch):
+    broken = {k: dict(v) for k, v in menu_da.ingredients_by_id().items()}
+    broken["bbq_sauce"].pop("unit")
+    monkeypatch.setattr(menu_da, "ingredients_by_id", lambda: broken)
+    with pytest.raises(UnitResolutionError, match="ingredient 'bbq_sauce'"):
+        ingredient_unit("bbq_sauce", "en")
