@@ -62,6 +62,13 @@ demand inputs, obtains weather context, forecasts dishes, expands recipes,
 consumes batch inventory using FEFO, calculates prep and replenishment, creates
 the briefing and publishes the result end to end.
 
+**From disconnected operational data to one approval-ready kitchen plan.** A
+spreadsheet can calculate a shortage after someone manually assembles the data.
+Kitchen Prep Taskmaster gathers the available context, detects conflicts between
+demand, recipes, inventory, expiry and scheduled deliveries, then flags
+shortfall recommendations for human review with the calculation and audit trail
+attached.
+
 **Reproducibility as a design principle.** Every attempt appends a step-by-step
 run log even when execution fails. Each operational date has a replay-safe,
 frozen inventory input and output snapshot; retries are idempotent, and forced

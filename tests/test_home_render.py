@@ -174,6 +174,77 @@ def test_render_home_has_judge_focused_hero_and_navigation():
     assert 'id="forecast"' in html
 
 
+def test_render_home_shows_fact_based_plan_impact_without_unverified_claims():
+    html = render_home(_plan(), language="en")
+    assert "Impact" in html
+    assert "1 service risk surfaced before prep" in html
+    assert "1 expired batch isolated" in html
+    assert "1 future replenishment proposal prepared" in html
+    assert "Calculated from this published plan." in html
+    assert "45 min saved" not in html
+    assert "$120" not in html
+    assert "0 surprise stockouts" not in html
+
+
+def test_render_home_explains_why_agent_is_not_a_spreadsheet():
+    html = render_home(_plan(), language="en")
+    assert "Why this isn’t a spreadsheet" in html
+    assert "Deterministic engine" in html
+    assert "Calculates recipe demand, FEFO consumption, shortages, lead times and par replenishment." in html
+    assert "AI agent" in html
+    assert "Uses the validated context to forecast, prioritise conflicts, propose actions and explain the result." in html
+    assert "Human approval" in html
+    assert "Shortfall recommendations are flagged for operator review" in html
+
+
+def test_render_home_makes_agent_activity_visible_and_labels_demo_data():
+    html = render_home(_plan(), language="en")
+    assert "AI Operations Agent — completed 7 actions" in html
+    assert "Started automatically at 07:00 through Cloud Scheduler" in html
+    assert "Read simulated POS history; resolved 80 expected covers from Bookings file" in html
+    assert "Read weekday and weather context; safe fallback used same-weekday history" in html
+    assert "Reconciled demand with dated FEFO inventory and scheduled deliveries" in html
+    assert "Published the prep plan with 1 service alert and 1 approval request" in html
+
+
+def test_render_home_only_claims_weather_adjustment_when_gemini_forecast_is_used():
+    plan = _plan()
+    plan["forecast"]["forecast_source"] = "gemini"
+    plan["forecast_note"] = "gemini_ok"
+    plan["briefing_source"] = "gemini"
+    html = render_home(plan, language="en")
+    assert "Applied weekday and weather context to the Gemini demand proposal" in html
+    assert "safe fallback used same-weekday history" not in html
+
+
+def test_render_home_explains_shortfall_arithmetic_and_approval_boundary():
+    plan = _plan()
+    plan["forecast"]["dishes"] = [
+        {"dish_id": "classic_burger", "expected_qty": 45},
+        {"dish_id": "bacon_burger", "expected_qty": 26},
+    ]
+    html = render_home(plan, language="en")
+    assert "Why this action?" in html
+    assert "45 portions × 1 pcs = 45 pcs (Classic Cheeseburger)" in html
+    assert "26 portions × 1 pcs = 26 pcs (Bacon &amp; Cheddar Burger)" in html
+    assert "71 pcs required − 40 pcs usable inventory = 31 pcs service shortfall" in html
+    assert "Agent recommendation: Source 31 patties before service." in html
+    assert "Human approval required before external action." in html
+
+
+def test_render_home_localises_impact_and_agent_explanation():
+    html = render_home(_plan(), language="no")
+    assert "Effekt" in html
+    assert "1 servicerisiko avdekket før prep" in html
+    assert "1 utgått batch isolert" in html
+    assert "Beregnet fra denne publiserte planen." in html
+    assert "Hvorfor dette ikke er et regneark" in html
+    assert "Startet automatisk kl. 07:00 via Cloud Scheduler" in html
+    assert "AI-driftsagent — fullførte 7 handlinger" in html
+    assert "Hvorfor dette tiltaket?" in html
+    assert "Menneskelig godkjenning" in html
+
+
 def test_render_home_uses_natural_operational_numbers_and_dates():
     html = render_home(_plan(), language="no")
     assert "Behov: 71 stk" in html
