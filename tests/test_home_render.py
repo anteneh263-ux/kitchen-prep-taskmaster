@@ -67,7 +67,7 @@ def test_render_home_contains_all_sections():
     # Prep
     assert "bbq_ribs" in html
     # Shortfalls
-    assert "Mangler før service" in html and "Burgerkjøtt" in html
+    assert "Dagens servicerisikoer" in html and "Burgerkjøtt" in html
     # Orders
     assert "Bestillinger" in html and "Hamburgerbrød" in html and "BakeryCo" in html
     # Waste
@@ -116,7 +116,7 @@ def test_render_home_supports_english():
     assert "Forecast" in html
     assert "date_input_output_snapshot" in html
     assert "Forecast model unavailable" in html
-    assert "Service shortfalls" in html
+    assert "Today’s service risks" in html
     assert "Future replenishment" in html
     assert "Waste requiring attention" in html
     assert 'href="?lang=no"' in html
@@ -154,12 +154,14 @@ def test_render_home_shows_read_only_plan_history():
 
 def test_render_home_exposes_agent_briefing_and_human_approval_boundary():
     html = render_home(_plan(), language="en")
-    assert "Approval and recommendations" in html
-    assert "Review before taking external action" in html
+    assert "Today’s service risks" in html
+    assert "Each shortage includes one recommendation and its approval boundary." in html
     assert "80 guests expected. One shortfall needs attention." in html
     assert "Source 31 patties before service." in html
     assert "Approval required" in html
     assert "Discard expired batch b06." in html
+    assert "Approval and recommendations" not in html
+    assert "Service shortfalls" not in html
 
 
 def test_render_home_explains_the_autonomous_run_with_plan_evidence():
@@ -178,11 +180,11 @@ def test_render_home_has_judge_focused_hero_and_navigation():
     html = render_home(_plan(), language="en")
     assert "/assets/food-hero.webp" in html
     assert "Today’s kitchen plan" in html
-    assert "Action required: Source 31 pcs Beef Patty" in html
-    assert "View future replenishment" in html and "Review today’s action" in html
+    assert "1 service risk requires review" in html
+    assert "View future replenishment" in html and "Review today’s risks" in html
     assert "11 Aug 2026 · 07:00" in html
     assert 'datetime="2026-08-11T07:00:00+02:00"' in html
-    assert 'href="#critical-actions"' in html
+    assert 'href="#service-risks"' in html
     assert 'href="#traceability"' in html
     assert 'href="#prep-plan"' in html
     assert 'href="#orders"' in html
@@ -220,6 +222,7 @@ def test_render_home_explains_why_agent_is_not_a_spreadsheet():
 def test_render_home_makes_agent_activity_visible_and_labels_demo_data():
     html = render_home(_plan(), language="en")
     assert "AI Operations Agent — completed 7 actions" in html
+    assert html.index('id="traceability"') < html.index("AI Operations Agent — completed 7 actions")
     assert "Scheduled daily at 07:00; this plan was generated 11 Aug 2026 · 07:00" in html
     assert "Read simulated POS history; resolved 80 expected covers from Bookings file" in html
     assert "Read weekday and weather context; safe fallback used same-weekday history" in html
@@ -248,8 +251,8 @@ def test_render_home_explains_shortfall_arithmetic_and_approval_boundary():
     assert "45 portions × 1 pcs = 45 pcs (Classic Cheeseburger)" in html
     assert "26 portions × 1 pcs = 26 pcs (Bacon &amp; Cheddar Burger)" in html
     assert "71 pcs required − 40 pcs usable inventory = 31 pcs service shortfall" in html
-    assert "Agent recommendation: Source 31 patties before service." in html
-    assert "Human approval required before external action." in html
+    assert "Recommended action:</strong> Source 31 patties before service." in html
+    assert "Approval required" in html
 
 
 def test_render_home_localises_impact_and_agent_explanation():
@@ -360,8 +363,8 @@ def test_bbq_sauce_shortfall_uses_litres_on_every_html_surface():
     # Shortfall card: available, required, missing.
     assert "Available: 4 l · Required: 6.2 l" in html
     assert "Missing 2.2 l" in html
-    # Critical-action hero banner (first shortfall).
-    assert "Action required: Source 2.2 l Bbq Sauce" in html
+    # The summary banner reports the count; item quantities appear only once.
+    assert "2 service risks require review" in html
     # Order table.
     assert "<td>5 l</td>" in html
 
@@ -415,7 +418,7 @@ def test_piece_ingredients_still_render_pcs_and_stk():
     en = render_home(_plan(), language="en")
     assert "Available: 40 pcs · Required: 71 pcs" in en
     assert "Missing 31 pcs" in en
-    assert "Action required: Source 31 pcs Beef Patty" in en
+    assert "1 service risk requires review" in en
     no = render_home(_plan(), language="no")
     assert "Tilgjengelig: 40 stk · Behov: 71 stk" in no
     assert "Mangler 31 stk" in no
@@ -524,17 +527,17 @@ def test_ambiguous_legacy_labels_are_gone_from_every_surface():
 def test_critical_banner_separates_today_from_future_replenishment():
     en = render_home(_plan_shortfall_and_future_order(), language="en")
     assert "View future replenishment" in en
-    assert "Review today’s action" in en
+    assert "Review today’s risks" in en
     no = render_home(_plan_shortfall_and_future_order(), language="no")
     assert "Se fremtidig lagerpåfylling" in no
-    assert "Vurder dagens tiltak" in no
+    assert "Vurder dagens risikoer" in no
 
 
 def test_today_and_future_remain_two_distinct_sections():
     """Structural separation, not just wording: different sections, different anchors."""
     for language, today_heading, future_heading in (
-        ("en", "Service shortfalls", "Future replenishment"),
-        ("no", "Mangler før service", "Fremtidig lagerpåfylling"),
+        ("en", "Today’s service risks", "Future replenishment"),
+        ("no", "Dagens servicerisikoer", "Fremtidig lagerpåfylling"),
     ):
         html = render_home(_plan_shortfall_and_future_order(), language=language)
         today_at = html.index(today_heading)
@@ -573,4 +576,13 @@ def test_public_viewer_gains_no_forms_or_mutation_controls_from_the_relabelling(
         assert "/actions/" not in public_html
         # The two banner controls are plain in-page anchors.
         assert 'href="#orders"' in public_html
-        assert 'href="#approval"' in public_html
+        assert 'href="#service-risks"' in public_html
+
+
+def test_homepage_consolidates_each_shortfall_into_one_service_risk_section():
+    html = render_home(_plan(), language="en")
+    assert html.count("Today’s service risks") == 1
+    assert html.count("Source 31 patties before service.") == 1
+    assert html.count("Missing 31 pcs") == 1
+    assert "Approval and recommendations" not in html
+    assert "Service shortfalls" not in html

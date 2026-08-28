@@ -7,11 +7,11 @@ are present.
 import pytest
 
 pytest.importorskip("fastapi")
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from kitchen_prep import config  # noqa: E402
-from kitchen_prep.gemini.client import OfflineClient  # noqa: E402
-from kitchen_prep.orchestrator import run_daily_prep  # noqa: E402
+from kitchen_prep import config
+from kitchen_prep.gemini.client import OfflineClient
+from kitchen_prep.orchestrator import run_daily_prep
 
 
 @pytest.fixture()
@@ -35,7 +35,7 @@ def test_home_returns_200_and_html(client_with_plan):
 def test_home_shows_prep_shortfalls_orders_waste(client_with_plan):
     body = client_with_plan.get("/").text
     assert "Dagens prep" in body
-    assert "Mangler før service" in body
+    assert "Dagens servicerisikoer" in body
     assert "Fremtidig lagerpåfylling" in body
     assert "Svinn som krever kontroll" in body
     # Real data from the demo run.
