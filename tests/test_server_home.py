@@ -36,7 +36,7 @@ def test_home_shows_prep_shortfalls_orders_waste(client_with_plan):
     body = client_with_plan.get("/").text
     assert "Dagens prep" in body
     assert "Mangler før service" in body
-    assert "Bestillingsforslag" in body
+    assert "Fremtidig lagerpåfylling" in body
     assert "Svinn som krever kontroll" in body
     # Real data from the demo run.
     assert "b06" in body  # expired pork_ribs batch

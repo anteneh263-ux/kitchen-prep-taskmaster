@@ -384,7 +384,7 @@ def render_home(
         for order in orders
     )
     order_block = (
-        f'<div class="table-wrap"><table><thead><tr><th>{"Item" if en else "Vare"}</th><th>{"Order" if en else "Bestill"}</th>'
+        f'<div class="table-wrap"><table><thead><tr><th>{"Item" if en else "Vare"}</th><th>{"Additional order" if en else "Ekstra bestilling"}</th>'
         f'<th>{"Supplier" if en else "Leverandør"}</th><th>{"Delivery" if en else "Levering"}</th></tr></thead><tbody>{order_rows}</tbody></table></div>'
         if orders else _empty("No replenishment orders." if en else "Ingen bestillinger.")
     )
@@ -532,7 +532,7 @@ def render_home(
                 action_controls = f'''<form method="post" action="/plans/{escape(str(plan.get('date', '')))}/actions/{escape(critical_item_id)}/approved?lang={language}"><button class="button" type="submit">{"Approve" if en else "Godkjenn"}</button></form>
 <form method="post" action="/plans/{escape(str(plan.get('date', '')))}/actions/{escape(critical_item_id)}/resolved?lang={language}"><button class="button button--secondary" type="submit">{"Mark resolved" if en else "Marker som løst"}</button></form>'''
         else:
-            action_controls = f'<a class="button" href="#orders">{"Review order" if en else "Se bestillingsforslag"}</a><a class="button button--secondary" href="#approval">{"Review approval" if en else "Se godkjenning"}</a>'
+            action_controls = f'<a class="button button--secondary" href="#orders">{"View future replenishment" if en else "Se fremtidig lagerpåfylling"}</a><a class="button" href="#approval">{"Review today’s action" if en else "Vurder dagens tiltak"}</a>'
         critical_heading = (("Resolved" if en else "Markert som løst") if action_status == "resolved" else ("Action required" if en else "Handling kreves"))
         critical_block = f'''<section class="{critical_class}" id="critical-actions" aria-labelledby="critical-title">
 <span class="critical-icon">{critical_icon}</span><div><h2 id="critical-title">{critical_heading}: {"Source" if en and action_status != "resolved" else "Skaff" if not en and action_status != "resolved" else ""} {escape(critical_qty)} {escape(ingredient_unit(critical_item_id, language))} {escape(critical_item)}</h2>
@@ -571,7 +571,7 @@ def render_home(
 <section class="panel" id="prep-plan"><header class="panel-head"><h2>{"Today’s prep" if en else "Dagens prep"}</h2><p>{"Work in priority order" if en else "Utfør i prioritert rekkefølge"}</p></header>{prep_block}</section>
 <div class="grid"><section class="panel" id="approval"><header class="panel-head"><h2>{"Approval and recommendations" if en else "Godkjenning og anbefalinger"}</h2><p>{"Review before taking external action" if en else "Kontroller før eksterne tiltak gjennomføres"}</p></header>{briefing_content}</section>
 <section class="panel"><header class="panel-head"><h2>{"Service shortfalls" if en else "Mangler før service"}</h2><p>{"Must be resolved before service" if en else "Må løses før service"}</p></header>{short_block}</section></div>
-<section class="panel" id="orders"><header class="panel-head"><h2>{"Order proposals" if en else "Bestillingsforslag"}</h2><p>{"Expected delivery is shown separately from the plan date" if en else "Forventet levering vises separat fra plandatoen"}</p></header>{order_block}</section>
+<section class="panel" id="orders"><header class="panel-head"><h2>{"Future replenishment" if en else "Fremtidig lagerpåfylling"}</h2><p>{"Calculated to restore par stock after scheduled arrivals. These deliveries do not resolve today’s service shortfalls." if en else "Beregnet for å fylle lageret til par-nivå etter planlagte leveranser. Disse leveransene løser ikke dagens mangler."}</p></header>{order_block}</section>
 <section class="panel" id="forecast"><header class="panel-head"><h2>{"Demand forecast" if en else "Etterspørselsprognose"}</h2><p>{"Expected quantities for today’s service" if en else "Forventede mengder for dagens service"}</p></header>
 {f'<div class="driver-list">{driver_block}</div>' if driver_block else f'<p class="empty">{"No forecast drivers are available because the reserve model was used." if en else "Ingen prognosedrivere er tilgjengelige fordi reservemodellen ble brukt."}</p>'}{forecast_rows}</section>
 <section class="panel"><header class="panel-head"><h2>{"Waste requiring attention" if en else "Svinn som krever kontroll"}</h2><p>{"Expired stock is excluded before consumption is calculated" if en else "Utgått lager er fjernet før forbruk beregnes"}</p></header>{waste_block}</section>

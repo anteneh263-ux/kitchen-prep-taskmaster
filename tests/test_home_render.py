@@ -98,7 +98,7 @@ def test_render_home_supports_english():
     assert "date_input_output_snapshot" in html
     assert "Forecast model unavailable" in html
     assert "Service shortfalls" in html
-    assert "Order proposals" in html
+    assert "Future replenishment" in html
     assert "Waste requiring attention" in html
     assert 'href="?lang=no"' in html
 
@@ -160,7 +160,7 @@ def test_render_home_has_judge_focused_hero_and_navigation():
     assert "/assets/food-hero.webp" in html
     assert "Today’s kitchen plan" in html
     assert "Action required: Source 31 pcs Beef Patty" in html
-    assert "Review order" in html and "Review approval" in html
+    assert "View future replenishment" in html and "Review today’s action" in html
     assert "11 Aug 2026 · 07:00" in html
     assert 'datetime="2026-08-11T07:00:00+02:00"' in html
     assert 'href="#critical-actions"' in html
@@ -195,7 +195,7 @@ def test_render_home_only_shows_mutating_controls_in_private_mode():
     public_html = render_home(_plan(), language="no")
     private_html = render_home(_plan(), language="no", interactive=True)
     assert 'method="post"' not in public_html
-    assert "Se bestillingsforslag" in public_html
+    assert "Se fremtidig lagerpåfylling" in public_html
     assert 'method="post"' in private_html
     assert "/actions/beef_patty/approved?lang=no" in private_html
     assert "Marker som løst" in private_html
@@ -351,3 +351,127 @@ def test_missing_unit_on_an_ingredient_fails_clearly(monkeypatch):
     monkeypatch.setattr(menu_da, "ingredients_by_id", lambda: broken)
     with pytest.raises(UnitResolutionError, match="ingredient 'bbq_sauce'"):
         ingredient_unit("bbq_sauce", "en")
+
+
+# --- Temporal separation: today's shortfalls vs future replenishment --------
+# The same ingredient can appear both as an uncovered requirement for TODAY and
+# as a future order that lands days later. The two must never read as one
+# number, and the future order must never read as a fix for today.
+
+EN_REPLENISHMENT_NOTE = (
+    "Calculated to restore par stock after scheduled arrivals. "
+    "These deliveries do not resolve today’s service shortfalls."
+)
+NO_REPLENISHMENT_NOTE = (
+    "Beregnet for å fylle lageret til par-nivå etter planlagte leveranser. "
+    "Disse leveransene løser ikke dagens mangler."
+)
+
+
+def _plan_shortfall_and_future_order():
+    """One item short for today AND carrying a future order, as in production."""
+    plan = _plan()
+    plan["prep_shortfalls"] = [
+        {"item_id": "pork_ribs", "required": 8.55, "available": 5.7, "shortfall": 2.85}
+    ]
+    plan["replenishment_orders"] = [
+        {"item_id": "pork_ribs", "order_qty": 5.7, "unit": "kg", "supplier": "MeatCo",
+         "delivery_date": "2026-08-16"}
+    ]
+    plan["briefing"]["shortfall_actions"] = [{
+        "item_id": "pork_ribs",
+        "recommended_action": "Source 2.85 kg before service.",
+        "requires_human_approval": True,
+    }]
+    return plan
+
+
+def test_future_replenishment_section_explains_it_does_not_fix_today_in_english():
+    html = render_home(_plan(), language="en")
+    assert "Future replenishment" in html
+    assert EN_REPLENISHMENT_NOTE in html
+
+
+def test_future_replenishment_section_explains_it_does_not_fix_today_in_norwegian():
+    html = render_home(_plan(), language="no")
+    assert "Fremtidig lagerpåfylling" in html
+    assert NO_REPLENISHMENT_NOTE in html
+
+
+def test_order_quantity_column_is_labelled_as_an_additional_order():
+    assert "<th>Additional order</th>" in render_home(_plan(), language="en")
+    assert "<th>Ekstra bestilling</th>" in render_home(_plan(), language="no")
+
+
+def test_ambiguous_legacy_labels_are_gone_from_every_surface():
+    stale = [
+        "Order proposals",
+        "Bestillingsforslag",
+        "Review order",
+        "Review approval",
+        "Se bestillingsforslag",
+        "Se godkjenning",
+        "<th>Order</th>",
+        "<th>Bestill</th>",
+        "Expected delivery is shown separately from the plan date",
+        "Forventet levering vises separat fra plandatoen",
+    ]
+    for language in ("en", "no"):
+        html = render_home(_plan_shortfall_and_future_order(), language=language)
+        for label in stale:
+            assert label not in html, f"{label!r} still rendered in {language}"
+
+
+def test_critical_banner_separates_today_from_future_replenishment():
+    en = render_home(_plan_shortfall_and_future_order(), language="en")
+    assert "View future replenishment" in en
+    assert "Review today’s action" in en
+    no = render_home(_plan_shortfall_and_future_order(), language="no")
+    assert "Se fremtidig lagerpåfylling" in no
+    assert "Vurder dagens tiltak" in no
+
+
+def test_today_and_future_remain_two_distinct_sections():
+    """Structural separation, not just wording: different sections, different anchors."""
+    for language, today_heading, future_heading in (
+        ("en", "Service shortfalls", "Future replenishment"),
+        ("no", "Mangler før service", "Fremtidig lagerpåfylling"),
+    ):
+        html = render_home(_plan_shortfall_and_future_order(), language=language)
+        today_at = html.index(today_heading)
+        future_at = html.index(future_heading)
+        assert today_at != future_at
+        # The future-replenishment heading lives inside the #orders section, and
+        # today's shortfalls live outside it.
+        orders_at = html.index('<section class="panel" id="orders">')
+        assert today_at < orders_at < future_at
+        # A section boundary is crossed between them.
+        assert "</section>" in html[today_at:future_at]
+
+
+def test_stored_order_quantities_render_unchanged_by_the_relabelling():
+    plan = _plan_shortfall_and_future_order()
+    en = render_home(plan, language="en")
+    no = render_home(plan, language="no")
+    # The future order (5.7 kg) and today's availability (5.7 kg) are numerically
+    # identical in production; both must still render their stored values.
+    assert "<td>5.7 kg</td>" in en and "<td>5.7 kg</td>" in no
+    assert "Available: 5.7 kg · Required: 8.55 kg" in en
+    assert "Tilgjengelig: 5.7 kg · Behov: 8.55 kg" in no
+    assert "Missing 2.85 kg" in en
+    assert "Mangler 2.85 kg" in no
+    assert '<time datetime="2026-08-16">16 Aug</time>' in en
+    # Unchanged from the original fixture, too.
+    assert "<td>60 stk</td>" in render_home(_plan(), language="no")
+
+
+def test_public_viewer_gains_no_forms_or_mutation_controls_from_the_relabelling():
+    for language in ("en", "no"):
+        public_html = render_home(_plan_shortfall_and_future_order(), language=language)
+        assert 'method="post"' not in public_html
+        assert "<form" not in public_html
+        assert "<button" not in public_html
+        assert "/actions/" not in public_html
+        # The two banner controls are plain in-page anchors.
+        assert 'href="#orders"' in public_html
+        assert 'href="#approval"' in public_html
