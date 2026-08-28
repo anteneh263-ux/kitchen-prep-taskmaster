@@ -1,18 +1,27 @@
-"""Public, read-only FastAPI surface for kitchen plan viewing.
+"""Public plan viewer plus an isolated synthetic interactive demo.
 
-This app intentionally imports neither the orchestrator nor the private server.
-It exposes only reads from the configured store, so the public Cloud Run service
-cannot trigger a plan run through HTTP.
+Production plans remain read-only: this app imports neither the orchestrator nor
+the private server and cannot mutate the configured store.  The ``/demo`` routes
+operate only on bounded, process-local synthetic sessions.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from pydantic import BaseModel
 
 from .data_access import store as store_da
+from .demo import (
+    DemoCapacityReached,
+    DemoInvalidTransition,
+    DemoRegistry,
+    DemoSessionNotFound,
+)
+from .render.demo import render_demo
 from .render.html import render_home
 
 app = FastAPI(
@@ -22,6 +31,24 @@ app = FastAPI(
     openapi_url=None,
 )
 _HERO_IMAGE = Path(__file__).parent / "assets" / "food-hero.webp"
+demo_registry = DemoRegistry()
+
+
+class DemoDecision(BaseModel):
+    action: Literal["approve", "reject"]
+
+
+def _require_demo_header(value: str | None) -> None:
+    if value != "1":
+        raise HTTPException(status_code=403, detail="missing demo request header")
+
+
+def _demo_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, DemoSessionNotFound):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, DemoCapacityReached):
+        return HTTPException(status_code=429, detail=str(exc))
+    return HTTPException(status_code=409, detail=str(exc))
 
 
 def _plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
@@ -45,7 +72,80 @@ def home(lang: str = "en", date: str | None = None) -> HTMLResponse:
     store = store_da.get_store()
     plans = store.list_plans(limit=14)
     plan = store.get_plan(date) if date else (plans[0] if plans else None)
-    return HTMLResponse(content=render_home(plan, language=lang, available_plans=plans))
+    return HTMLResponse(
+        content=render_home(
+            plan,
+            language=lang,
+            available_plans=plans,
+            demo_url="/demo",
+        )
+    )
+
+
+@app.get("/demo", response_class=HTMLResponse)
+def interactive_demo() -> HTMLResponse:
+    """Credential-free sandbox; explicitly disconnected from production data."""
+    return HTMLResponse(
+        content=render_demo(),
+        headers={
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.post("/demo/sessions")
+def create_demo_session(
+    x_demo_request: str | None = Header(default=None, alias="X-Demo-Request"),
+) -> dict[str, Any]:
+    _require_demo_header(x_demo_request)
+    try:
+        return demo_registry.create()
+    except DemoCapacityReached as exc:
+        raise _demo_error(exc) from exc
+
+
+@app.get("/demo/sessions/{session_id}")
+def get_demo_session(session_id: str) -> dict[str, Any]:
+    try:
+        return demo_registry.get(session_id)
+    except DemoSessionNotFound as exc:
+        raise _demo_error(exc) from exc
+
+
+@app.get("/demo/sessions/{session_id}/events")
+def stream_demo_session(session_id: str) -> StreamingResponse:
+    try:
+        state = demo_registry.get(session_id)
+        if state["status"] != "created":
+            raise DemoInvalidTransition("demo run has already started")
+    except (DemoSessionNotFound, DemoInvalidTransition) as exc:
+        raise _demo_error(exc) from exc
+
+    def stream():
+        for event in demo_registry.run(session_id):
+            yield f"event: step\ndata: {json.dumps(event, separators=(',', ':'))}\n\n"
+        yield "event: complete\ndata: {}\n\n"
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/demo/sessions/{session_id}/decision")
+def decide_demo_session(
+    session_id: str,
+    decision: DemoDecision,
+    x_demo_request: str | None = Header(default=None, alias="X-Demo-Request"),
+) -> dict[str, Any]:
+    _require_demo_header(x_demo_request)
+    try:
+        return demo_registry.decide(session_id, decision.action)
+    except (DemoSessionNotFound, DemoInvalidTransition) as exc:
+        raise _demo_error(exc) from exc
 
 
 @app.get("/assets/food-hero.webp", include_in_schema=False)

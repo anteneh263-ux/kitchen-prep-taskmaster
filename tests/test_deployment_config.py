@@ -12,6 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
 DOCKERIGNORE = ROOT / ".dockerignore"
+DEPLOY_DOC = ROOT / "deploy" / "cloud_run.md"
 
 REQUIRED_DOCKERIGNORE_ENTRIES = [
     ".git",
@@ -84,15 +85,25 @@ def test_dockerignore_covers_the_required_entries():
     assert not missing, f".dockerignore is missing: {missing}"
 
 
+def test_process_local_public_demo_is_deployed_with_one_instance():
+    text = DEPLOY_DOC.read_text(encoding="utf-8")
+    viewer_section = text.split("## Public viewer and isolated demo sandbox", 1)[1]
+    assert "--max-instances=1" in viewer_section
+    assert "roles/datastore.viewer" in viewer_section
+    assert "no Gemini secret" in viewer_section
+
+
 # --- Served routes -------------------------------------------------------
 
 pytest.importorskip("fastapi")
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from kitchen_prep import config  # noqa: E402
-from kitchen_prep import orchestrator  # noqa: E402
-from kitchen_prep.gemini.client import OfflineClient  # noqa: E402
-from kitchen_prep.pipeline.baseline import baseline_forecast  # noqa: E402
+from kitchen_prep import (
+    config,
+    orchestrator,
+)
+from kitchen_prep.gemini.client import OfflineClient
+from kitchen_prep.pipeline.baseline import baseline_forecast
 
 
 @pytest.fixture()

@@ -3,7 +3,8 @@
 Deployment uses two FastAPI surfaces served by Uvicorn:
 
 - `kitchen_prep/server.py`: private worker invoked by Cloud Scheduler.
-- `kitchen_prep/public_server.py`: public read-only plan viewer.
+- `kitchen_prep/public_server.py`: public read-only plan viewer plus an isolated
+  synthetic demo sandbox.
 
 The separation keeps Cloud Run IAM as the worker's authentication boundary and
 ensures the public service does not import or expose `run_daily_prep`.
@@ -68,10 +69,12 @@ delivery to prevent duplicate ordering. For a controlled synthetic-data
 migration, set `KP_INVENTORY_EPOCH=YYYY-MM-DD`; that date starts fresh par stock
 and records `inventory_basis: epoch_seed_snapshot` without rewriting history.
 
-## Public read-only viewer
+## Public viewer and isolated demo sandbox
 
 The viewer uses a dedicated service account with `roles/datastore.viewer` only.
-It receives no Gemini secret and starts the read-only app explicitly:
+It receives no Gemini secret. Production plan routes remain read-only; `/demo`
+uses bounded, short-lived process memory and synthetic data only. Because those
+sessions are process-local, deploy this hackathon sandbox with one instance:
 
 ```bash
 gcloud run deploy kitchen-prep-viewer \
@@ -83,9 +86,12 @@ gcloud run deploy kitchen-prep-viewer \
   --args=kitchen_prep.public_server:app,--host,0.0.0.0,--port,8080 \
   --port=8080 \
   --set-env-vars=KP_STORE=firestore,GOOGLE_CLOUD_PROJECT="$PROJECT" \
-  --max-instances=3 \
+  --max-instances=1 \
   --allow-unauthenticated
 ```
 
-Public routes are limited to `GET /`, `GET /plans/latest`, and `GET /health`.
-The private run endpoint and FastAPI schema/documentation routes return 404.
+Production routes remain `GET /`, `GET /plans/latest`, `GET /plans` and
+`GET /plans/{date}`. The private run endpoint, production action endpoint and
+FastAPI schema/documentation routes return 404. Demo POSTs can mutate only the
+caller’s expiring in-memory synthetic session; they cannot write Firestore,
+call Gemini or contact a real supplier.

@@ -25,7 +25,10 @@ and prioritizes the final briefing, while deterministic Python validates the
 forecast, expands recipes, consumes batch inventory using FEFO, separates
 today's shortfalls from future replenishment, flags expired stock and calculates
 orders from what is genuinely left. The result is stored in Firestore and
-published through a bilingual, mobile-friendly, read-only dashboard.
+published through a bilingual, mobile-friendly dashboard whose production plans
+are read-only. An isolated public sandbox lets judges run the same deterministic
+planning tools and approve or reject a simulated action without touching
+production data or external systems.
 
 ## Inspiration / problem
 
@@ -100,6 +103,9 @@ claim of being a mature restaurant-management product.
   forced reruns never consume stock twice.
 - Uses Gemini for a schema-validated kitchen briefing after all quantities are
   frozen.
+- Includes an interactive, session-scoped demo: run the morning plan, watch
+  server-side tool events, inspect one controlled shortfall, approve or reject a
+  simulated order, and verify the status change in its audit trail.
 - Stores plans, snapshots and audit logs in Firestore.
 - Publishes an English/Norwegian responsive dashboard with plan history,
   forecast explanations, an agent briefing, run-integrity evidence and a visual
@@ -123,8 +129,10 @@ quantities or delivery dates.
 
 The worker requires Cloud Run authentication and receives its Gemini credential
 from Secret Manager. Cloud Scheduler invokes it with OIDC. The public viewer is
-a separate service with Firestore viewer permission only: it has no Gemini
-secret and no mutation, schema or documentation routes.
+a separate service with Firestore viewer permission only and no Gemini secret.
+Its production plan routes are read-only. The interactive `/demo` routes operate
+only on bounded in-memory sessions using synthetic data and a simulated supplier
+connector.
 
 An optional Google ADK adapter exposes the same orchestrator as one tool for
 interactive development. The scheduled production path uses the Google Gen AI

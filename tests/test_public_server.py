@@ -2,9 +2,9 @@
 import pytest
 
 pytest.importorskip("fastapi")
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from kitchen_prep import config  # noqa: E402
+from kitchen_prep import config
 
 
 @pytest.fixture()
@@ -53,6 +53,16 @@ def test_public_health_is_ok(empty_client):
     response = empty_client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_public_demo_page_is_available_without_exposing_production_mutations(empty_client):
+    response = empty_client.get("/demo")
+    assert response.status_code == 200
+    assert "Interactive demo" in response.text
+    assert empty_client.post("/runs/daily").status_code == 404
+    assert empty_client.post(
+        "/plans/2026-08-14/actions/beef_patty/approved"
+    ).status_code == 404
 
 
 @pytest.mark.parametrize(

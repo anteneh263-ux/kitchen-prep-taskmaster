@@ -142,8 +142,9 @@ Orchestrator (kitchen_prep/orchestrator.py)
         ▼
 Firestore ── daily_plans · run_logs · inventory_snapshots
         ▲
-Public read-only Cloud Run viewer (kitchen_prep/public_server.py)
-        └─ GET / · GET /plans/latest · GET /health
+Public Cloud Run viewer (kitchen_prep/public_server.py)
+        ├─ read-only production plans: GET / · GET /plans/*
+        └─ isolated synthetic sandbox: /demo (process-local, no Firestore writes)
 
 Optional interactive adapter: Google ADK `root_agent` exposes the same
 `run_daily_prep` operation as its only tool for `adk web`; it is not in the
@@ -364,10 +365,11 @@ Verified production state on 2026-08-20:
 - an authenticated end-to-end run returned `forecast_source: gemini`,
   `forecast_note: gemini_ok`, and `briefing_source: gemini`.
 
-The worker remains private. A separate public, read-only judge viewer runs as
+The worker remains private. A separate public judge viewer runs as
 `kitchen-prep-viewer-00010-xlk` with only Firestore viewer permission. It
 receives no Gemini secret, and `/runs/daily`, `/docs`, `/redoc` and
-`/openapi.json` all return 404.
+`/openapi.json` all return 404. Its interactive `/demo` flow is synthetic,
+session-scoped and cannot write production Firestore or contact a supplier.
 
 **Cloud Run worker** — the private container entrypoint is
 `uvicorn kitchen_prep.server:app --host 0.0.0.0 --port ${PORT:-8080}`:
@@ -389,10 +391,11 @@ gcloud run deploy kitchen-prep-taskmaster-web \
 only, the pipeline starts a fresh synthetic par-stock snapshot, ignores older
 pending orders and publishes `inventory_basis: epoch_seed_snapshot`.
 
-The public read-only service runs `kitchen_prep.public_server:app` under a
-separate service account with only `roles/datastore.viewer`. It exposes `/`,
-`/plans/latest` and `/health`; `/runs/daily`, `/docs`, `/redoc` and
-`/openapi.json` are not registered. It has no access to `GOOGLE_API_KEY`.
+The public service runs `kitchen_prep.public_server:app` under a separate service
+account with only `roles/datastore.viewer`. Production plans remain read-only;
+`/runs/daily`, production action routes, `/docs`, `/redoc` and `/openapi.json`
+are not registered. It has no access to `GOOGLE_API_KEY`. `/demo` uses only
+bounded process memory, synthetic inputs and a simulated supplier connector.
 
 **Cloud Scheduler** — one authenticated job at 07:00 Europe/Oslo. The run date is
 computed server-side, so no date is passed:
@@ -480,10 +483,10 @@ Stated plainly, because a hackathon demo that hides its edges is not useful.
   delivery date, but demand occurring between today and delivery is not
   subtracted. This is a deliberate, documented simplification in
   `pipeline/replenishment.py`.
-- **The judge-facing viewer is deliberately read-only.** Judges can inspect the
-  latest plan without credentials, but cannot trigger runs or access the worker.
-  This keeps the demo testable without exposing the Gemini secret or a mutation
-  endpoint.
+- **Production plans in the judge-facing viewer are deliberately read-only.**
+  Judges cannot trigger the private worker or mutate Firestore. The separate
+  `/demo` sandbox supports session-scoped synthetic decisions without exposing
+  the Gemini secret or any production mutation endpoint.
 - **Bookings cover a fixed synthetic window** (2026-08-11 → 2026-08-16). Dates
   past it no longer fail: covers are estimated deterministically from sales
   history (rounded same-weekday mean, strictly before the target date), and the

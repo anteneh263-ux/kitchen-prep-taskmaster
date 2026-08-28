@@ -61,7 +61,7 @@ def test_render_home_contains_all_sections():
     assert "80" in html
     assert "deterministic_fallback" in html
     assert "2026-08-11T07:00:00+02:00" in html
-    assert "KLAR MED BEGRENSNINGER" in html
+    assert "HANDLING KREVES" in html
     assert "Prognosemodellen er utilgjengelig" in html
     assert "Classic Cheeseburger" in html  # human name, not only machine id
     # Prep
@@ -74,13 +74,32 @@ def test_render_home_contains_all_sections():
     assert "svinn" in html.lower() and "b06" in html
 
 
-def test_render_home_status_ok_when_no_fallback():
+def test_render_home_status_requires_action_when_shortfall_is_unresolved():
     plan = _plan()
     plan["forecast"]["forecast_source"] = "gemini"
     plan["briefing_source"] = "gemini"
     html = render_home(plan)
-    assert "KLAR" in html
+    assert "HANDLING KREVES" in html
     assert "KLAR MED BEGRENSNINGER" not in html
+
+
+def test_render_home_status_ready_only_when_no_unresolved_shortfalls():
+    plan = _plan()
+    plan["forecast"]["forecast_source"] = "gemini"
+    plan["briefing_source"] = "gemini"
+    plan["prep_shortfalls"] = []
+    plan["briefing"]["shortfall_actions"] = []
+    html = render_home(plan)
+    assert "KLAR" in html
+    assert "HANDLING KREVES" not in html
+
+
+def test_render_home_status_shows_fallback_only_after_operational_risks_are_clear():
+    plan = _plan()
+    plan["prep_shortfalls"] = []
+    plan["briefing"]["shortfall_actions"] = []
+    html = render_home(plan)
+    assert "KLAR MED BEGRENSNINGER" in html
 
 
 def test_render_home_handles_no_plan():
@@ -92,7 +111,7 @@ def test_render_home_handles_no_plan():
 def test_render_home_supports_english():
     html = render_home(_plan(), language="en")
     assert '<html lang="en">' in html
-    assert "READY WITH LIMITATIONS" in html
+    assert "ACTION REQUIRED" in html
     assert "Expected guests" in html
     assert "Forecast" in html
     assert "date_input_output_snapshot" in html
@@ -189,6 +208,7 @@ def test_render_home_shows_fact_based_plan_impact_without_unverified_claims():
 def test_render_home_explains_why_agent_is_not_a_spreadsheet():
     html = render_home(_plan(), language="en")
     assert "Why this isn’t a spreadsheet" in html
+    assert html.index('id="traceability"') < html.index("Why this isn’t a spreadsheet")
     assert "Deterministic engine" in html
     assert "Calculates recipe demand, FEFO consumption, shortages, lead times and par replenishment." in html
     assert "AI agent" in html
@@ -200,7 +220,7 @@ def test_render_home_explains_why_agent_is_not_a_spreadsheet():
 def test_render_home_makes_agent_activity_visible_and_labels_demo_data():
     html = render_home(_plan(), language="en")
     assert "AI Operations Agent — completed 7 actions" in html
-    assert "Started automatically at 07:00 through Cloud Scheduler" in html
+    assert "Scheduled daily at 07:00; this plan was generated 11 Aug 2026 · 07:00" in html
     assert "Read simulated POS history; resolved 80 expected covers from Bookings file" in html
     assert "Read weekday and weather context; safe fallback used same-weekday history" in html
     assert "Reconciled demand with dated FEFO inventory and scheduled deliveries" in html
@@ -239,10 +259,18 @@ def test_render_home_localises_impact_and_agent_explanation():
     assert "1 utgått batch isolert" in html
     assert "Beregnet fra denne publiserte planen." in html
     assert "Hvorfor dette ikke er et regneark" in html
-    assert "Startet automatisk kl. 07:00 via Cloud Scheduler" in html
+    assert "Planlagt daglig kl. 07:00; denne planen ble generert 11 aug. 2026 · 07:00" in html
     assert "AI-driftsagent — fullførte 7 handlinger" in html
     assert "Hvorfor dette tiltaket?" in html
     assert "Menneskelig godkjenning" in html
+
+
+def test_render_home_links_public_viewer_to_isolated_demo_only_when_configured():
+    public_html = render_home(_plan(), language="en", demo_url="/demo")
+    private_html = render_home(_plan(), language="en", interactive=True)
+    assert 'href="/demo"' in public_html
+    assert "Try interactive demo" in public_html
+    assert 'href="/demo"' not in private_html
 
 
 def test_render_home_uses_natural_operational_numbers_and_dates():

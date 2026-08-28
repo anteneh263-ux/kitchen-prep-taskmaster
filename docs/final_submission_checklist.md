@@ -25,7 +25,8 @@ Do not submit until every unchecked item is complete.
 - [x] Application supports English; Norwegian is optional.
 - [x] Public code repository with reproducible spin-up instructions.
 - [x] Architecture diagram and detailed architecture document.
-- [x] Public, free, credential-free read-only judge URL.
+- [x] Public, free, credential-free judge URL; production plans are read-only
+      and the interactive demo is an isolated synthetic sandbox.
 - [x] Third-party components, synthetic data and AI coding assistance disclosed.
 - [x] No confidential data or committed secrets.
 
@@ -37,8 +38,9 @@ Do not submit until every unchecked item is complete.
 - [x] Production run reports `forecast_source: gemini` and `gemini_ok`.
 - [x] Production run reports `briefing_source: gemini`.
 - [x] Forced replay preserves identical FEFO consumption and remaining stock.
-- [x] Public viewer mutation route and API docs return 404.
-- [x] Offline suite: 136 passed, 1 skipped; live-key integration path separately verified in
+- [x] Production mutation route and API docs return 404; demo POSTs cannot reach
+      production storage or external systems.
+- [x] Offline suite and live-key integration path separately verified in
       production.
 
 ## Devpost fields

@@ -186,6 +186,21 @@ the demo scope.
 8. **Consumption** — the kitchen opens `GET /` on a phone; other systems read
    `GET /plans/latest`.
 
+## Public interactive sandbox
+
+`GET /demo` is deliberately outside the production flow above. A judge creates
+a random, expiring in-memory session, then the server executes the real
+deterministic baseline, recipe explosion, FEFO consumption and replenishment
+functions against a controlled synthetic 139-cover scenario. Server-Sent Events
+expose each completed tool step. The state machine pauses at
+`awaiting_decision`; approve creates a simulated order and moves to
+`mitigation_scheduled`, while reject moves to `rejected`.
+
+The sandbox imports neither the production orchestrator nor the private server.
+It does not write Firestore, receive a Gemini secret, update inventory or contact
+a supplier. Sessions expire after fifteen minutes and the Cloud Run viewer is
+limited to one instance so a 90-second interaction stays on the same process.
+
 ## Data note
 
 All restaurant names, menu data, recipes, sales history, bookings and inventory

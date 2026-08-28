@@ -1,6 +1,6 @@
 # Judge Testing Instructions
 
-No login is required for the read-only judge interface:
+No login is required for the judge interface:
 
 https://kitchen-prep-viewer-373405758807.europe-north1.run.app
 
@@ -10,16 +10,20 @@ supported language.
 ## What to verify
 
 1. The page loads without authentication and displays the latest Firestore plan.
-2. The status is `OK` when both forecast and briefing sources are `gemini`.
+2. The operational status is `ACTION REQUIRED` while any service shortfall is
+   unresolved. Model and fallback status are shown separately in Traceability.
 3. The page shows expected guests, prioritized prep, today's shortfalls,
    replenishment orders, delivery dates and expired-batch waste.
 4. The run integrity panel identifies the dated input/output inventory snapshot
    basis, and a forced rerun replays the original input without double-consuming.
 5. The JSON representation is available at `/plans/latest`; capped read-only
    history is available at `/plans` and `/plans/{date}`.
-6. The public service is read-only: `POST /runs/daily`, `/docs`, `/redoc` and
-   `/openapi.json` return 404.
-7. The health endpoint is `/health`.
+6. Open `/demo`, press **Run morning plan**, watch eight real server-side tool
+   events, then approve or reject the isolated simulated order. Status and audit
+   history update without changing any production plan or inventory.
+7. Production mutations remain unavailable: `POST /runs/daily`, the production
+   action route, `/docs`, `/redoc` and `/openapi.json` return 404.
+8. The health endpoint is `/health`.
 
 ## Reproducing locally
 
@@ -41,4 +45,5 @@ pytest -m integration -q
 
 The private worker is intentionally not exposed to judges. Its authenticated
 live execution and Google Cloud deployment are demonstrated in the submission
-video; the public viewer has no mutation endpoint and no Gemini secret.
+video. The public service has no Gemini secret and no production mutation
+endpoint; its demo mutations are synthetic, session-scoped and process-local.
